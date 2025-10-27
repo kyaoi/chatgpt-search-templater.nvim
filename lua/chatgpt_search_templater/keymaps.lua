@@ -51,9 +51,7 @@ local function collect_visual_selection()
 
   local end_line = vim.api.nvim_buf_get_lines(bufnr, end_row, end_row + 1, false)[1] or ''
   local end_col_exclusive = end_col
-  if end_col_exclusive < 0 then
-    end_col_exclusive = 0
-  elseif end_col_exclusive > #end_line then
+  if end_col_exclusive > #end_line then
     end_col_exclusive = #end_line
   end
 
