@@ -35,3 +35,21 @@ require('chatgpt_search_templater').setup({
   },
 })
 ```
+
+`setup()` also installs a default keymap that opens the first enabled template in
+your browser:
+
+```text
+Normal / Visual: <leader>cg
+```
+
+Disable it entirely with `use_default_keymaps = false`, or override the bindings:
+
+```lua
+require('chatgpt_search_templater').setup({
+  keymaps = {
+    normal = '<leader>qs',
+    visual = '<leader>qs',
+  },
+})
+```

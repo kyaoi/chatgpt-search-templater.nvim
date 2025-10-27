@@ -1,4 +1,5 @@
 local config = require('chatgpt_search_templater.config')
+local keymaps = require('chatgpt_search_templater.keymaps')
 local spec = require('chatgpt_search_templater.spec')
 local templates = require('chatgpt_search_templater.templates')
 
@@ -14,12 +15,16 @@ function M.setup(opts)
 
   local spec_payload = spec.load()
 
-  return {
+  local payload = {
     options = options,
     spec = spec_payload,
     placeholders = spec.placeholders(),
     default_templates = templates.defaults(),
   }
+
+  keymaps.apply(options, payload)
+
+  return payload
 end
 
 return M

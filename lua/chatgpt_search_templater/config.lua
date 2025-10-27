@@ -3,6 +3,11 @@ local M = {}
 local defaults = {
   spec_path = nil,
   spec_data = nil,
+  use_default_keymaps = true,
+  keymaps = {
+    normal = '<leader>cg',
+    visual = '<leader>cg',
+  },
 }
 
 local options = vim.deepcopy(defaults)

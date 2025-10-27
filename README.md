@@ -62,6 +62,27 @@ require('chatgpt_search_templater').setup({
 })
 ```
 
+### Default keymaps
+
+`setup()` registers a default mapping that opens the first enabled template in
+your browser using the word under the cursor (normal mode) or the current visual
+selection:
+
+- Normal / Visual: `<leader>cg`
+
+Use `use_default_keymaps = false` to disable the mapping entirely, or override
+the key combinations:
+
+```lua
+require('chatgpt_search_templater').setup({
+  keymaps = {
+    normal = '<leader>qs',
+    visual = '<leader>qs',
+    force = true, -- set to true when you want to override user mappings
+  },
+})
+```
+
 ## Development
 
 Run the checks from the repository root:
