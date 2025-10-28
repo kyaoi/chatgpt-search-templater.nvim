@@ -64,9 +64,10 @@ require('chatgpt_search_templater').setup({
 
 ### Default keymaps
 
-`setup()` registers a default mapping that opens the first enabled template in
-your browser using the word under the cursor (normal mode) or the current visual
-selection:
+`setup()` registers a default mapping that prompts you to choose from the
+enabled templates (falling back to the only available one) and then opens the
+selection in your browser using the word under the cursor (normal mode) or the
+current visual selection:
 
 - Normal / Visual: `<leader>cg`
 
