@@ -89,8 +89,8 @@ local function find_default_template(spec_payload)
   return list[1]
 end
 
-local function build_url(spec_payload, encoded_text)
-  local template = find_default_template(spec_payload) or {}
+local function build_url(spec_payload, encoded_text, template_override)
+  local template = template_override or find_default_template(spec_payload) or {}
   local placeholders = spec_payload.placeholders or {}
 
   local url_template = template.url or spec_payload.defaultTemplateUrl
@@ -99,6 +99,28 @@ local function build_url(spec_payload, encoded_text)
   end
 
   return replace_placeholders(url_template, encoded_text, placeholders)
+end
+
+local function format_template_label(template)
+  if type(template) ~= 'table' then
+    return ''
+  end
+
+  return template.label or template.id or template.url or '<unnamed template>'
+end
+
+local function collect_enabled_templates(default_templates)
+  local source = {}
+  if type(default_templates) == 'table' then
+    for _, template in ipairs(default_templates) do
+      if type(template) == 'table' then
+        if template.enabled == nil or template.enabled == true then
+          table.insert(source, template)
+        end
+      end
+    end
+  end
+  return source
 end
 
 local function open_url(url)
@@ -165,13 +187,37 @@ function M.apply(options, payload)
       vim.notify('chatgpt-search-templater: search text is empty.', vim.log.levels.WARN)
       return
     end
+
     local encoded = url_encode(cleaned)
-    local url = build_url(payload.spec, encoded)
-    if not url then
-      vim.notify('chatgpt-search-templater: failed to resolve a URL template.', vim.log.levels.ERROR)
+    local enabled_templates = collect_enabled_templates(payload.default_templates)
+
+    local function open_for_template(template)
+      local url = build_url(payload.spec, encoded, template)
+      if not url then
+        vim.notify('chatgpt-search-templater: failed to resolve a URL template.', vim.log.levels.ERROR)
+        return
+      end
+      open_url(url)
+    end
+
+    if #enabled_templates <= 1 then
+      open_for_template(enabled_templates[1])
       return
     end
-    open_url(url)
+
+    vim.ui.select(
+      enabled_templates,
+      {
+        prompt = 'Select ChatGPT template',
+        format_item = format_template_label,
+      },
+      function(choice)
+        if not choice then
+          return
+        end
+        open_for_template(choice)
+      end
+    )
   end
 
   if type(normal_key) == 'string' and normal_key ~= '' then
