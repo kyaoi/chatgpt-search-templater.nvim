@@ -10,18 +10,20 @@ local function clear_applied()
 end
 
 local function url_encode(text)
-  return text
+  text = (text or '')
       :gsub('\r\n', '\n')
       :gsub('\r', '\n')
-      :gsub('\n', ' ')
-      :gsub('([^%w%-_%.~ ])', function(char)
+      :gsub('([^%w%-_%.~\n ])', function(char)
         return string.format('%%%02X', char:byte())
       end)
       :gsub(' ', '%%20')
+      :gsub('\n', '%%0A')
+
+  return text
 end
 
 local function trim_text(text)
-  local normalized = (text or ''):gsub('%s+', ' ')
+  local normalized = text or ''
   normalized = normalized:gsub('^%s+', '')
   normalized = normalized:gsub('%s+$', '')
   return normalized
