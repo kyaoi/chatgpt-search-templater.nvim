@@ -13,11 +13,10 @@ local function url_encode(text)
   text = (text or '')
       :gsub('\r\n', '\n')
       :gsub('\r', '\n')
-      :gsub('([^%w%-_%.~\n ])', function(char)
+      :gsub('([^%w%-_%.~ ])', function(char)
         return string.format('%%%02X', char:byte())
       end)
       :gsub(' ', '%%20')
-      :gsub('\n', '%%0A')
 
   return text
 end
