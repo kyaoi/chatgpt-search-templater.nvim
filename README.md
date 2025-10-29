@@ -65,12 +65,15 @@ require('chatgpt_search_templater').setup({
 
 ### Default keymaps
 
-`setup()` registers a default mapping that prompts you to choose from the
-enabled templates (falling back to the only available one) and then opens the
-selection in your browser using the word under the cursor (normal mode) or the
-current visual selection:
+`setup()` registers default mappings that operate on the current visual
+selection. `<leader>cg` opens the template picker, while `<leader>cG` skips the
+picker and immediately uses the template marked as default (or the first
+available template when none are marked):
 
-- Normal / Visual: `<leader>cg`
+- Visual (picker): `<leader>cg`
+- Visual (default): `<leader>cG`
+
+Normal mode用のマッピングは提供していません。ビジュアル選択からの検索に特化しています。
 
 Use `use_default_keymaps = false` to disable the mapping entirely, or override
 the key combinations:
@@ -78,9 +81,15 @@ the key combinations:
 ```lua
 require('chatgpt_search_templater').setup({
   keymaps = {
-    normal = '<leader>qs',
     visual = '<leader>qs',
+    default_visual = '<leader>qS',
     force = true, -- set to true when you want to override user mappings
   },
 })
 ```
+
+### Default template flag
+
+Mark a template in your spec with `"default": true` (or `"isDefault": true`)
+when you want it to be used for the quick-launch keymap. When no template is
+marked, the plugin falls back to the first enabled entry.

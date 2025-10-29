@@ -49,6 +49,7 @@ create a JSON file with the following contents:
       "label": "日本語訳",
       "url": "https://chatgpt.com/?q={TEXT}",
       "queryTemplate": "以下の文章を日本語訳してください。 またこの中で使われている単語や熟語について解説するとともに、文中の語句で簡単な物語を作成してください。\n\n{TEXT}",
+      "default": true,
       "enabled": true,
       "hintsSearch": true,
       "temporaryChat": false,
@@ -76,20 +77,28 @@ require('chatgpt_search_templater').setup({
 })
 ```
 
+Templates marked with `"default": true` (or `"isDefault": true`) are
+prioritised by the quick-launch keymap. When nothing is marked, the first
+enabled template is used.
+
 `setup()` also installs a default keymap that opens the first enabled template in
-your browser:
+your browser when you are in visual mode. A separate key skips the picker and
+launches the template marked as default (`"default": true` or `"isDefault": true`):
 
 ```text
-Normal / Visual: <leader>cg
+Visual (picker): <leader>cg
+Visual (default): <leader>cG
 ```
+
+Normal mode での検索はサポートしていません。必ずビジュアル選択から実行してください。
 
 Disable it entirely with `use_default_keymaps = false`, or override the bindings:
 
 ```lua
 require('chatgpt_search_templater').setup({
   keymaps = {
-    normal = '<leader>qs',
     visual = '<leader>qs',
+    default_visual = '<leader>qS',
   },
 })
 ```

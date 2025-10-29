@@ -105,6 +105,22 @@ local function replace_placeholders(template, value, placeholders)
 	return result
 end
 
+local function template_is_default(template)
+	if type(template) ~= "table" then
+		return false
+	end
+
+	if template.default == true then
+		return true
+	end
+
+	if template.isDefault == true then
+		return true
+	end
+
+	return false
+end
+
 local function resolve_query_template(spec_payload, template)
 	if type(template) == "table" then
 		local candidate = template.queryTemplate
@@ -131,12 +147,23 @@ end
 
 local function find_default_template(spec_payload)
 	local list = spec_payload.defaultTemplates or spec_payload.templates or {}
+	local default_candidate
+	local first_enabled
 	for _, template in ipairs(list) do
-		if template.enabled == nil or template.enabled == true then
-			return template
+		if type(template) == "table" then
+			local is_enabled = template.enabled == nil or template.enabled == true
+			if template_is_default(template) then
+				if is_enabled then
+					return template
+				end
+				default_candidate = default_candidate or template
+			end
+			if is_enabled and not first_enabled then
+				first_enabled = template
+			end
 		end
 	end
-	return list[1]
+	return first_enabled or default_candidate or list[1]
 end
 
 local function build_url(spec_payload, encoded_text, template_override)
@@ -160,17 +187,26 @@ local function format_template_label(template)
 end
 
 local function collect_enabled_templates(default_templates)
-	local source = {}
+	local defaults, others = {}, {}
 	if type(default_templates) == "table" then
 		for _, template in ipairs(default_templates) do
 			if type(template) == "table" then
 				if template.enabled == nil or template.enabled == true then
-					table.insert(source, template)
+					if template_is_default(template) then
+						table.insert(defaults, template)
+					else
+						table.insert(others, template)
+					end
 				end
 			end
 		end
 	end
-	return source
+
+	for _, template in ipairs(others) do
+		table.insert(defaults, template)
+	end
+
+	return defaults
 end
 
 local function open_url(url)
@@ -227,9 +263,55 @@ function M.apply(options, payload)
 	end
 
 	local keymaps = options.keymaps or {}
-	local normal_key = keymaps.normal
-	local visual_key = keymaps.visual or normal_key
+	local visual_key = keymaps.visual
+	local default_visual_key = keymaps.default_visual
 	local force = keymaps.force == true
+
+	local function open_template_for_text(template, raw_text)
+		if type(template) ~= "table" then
+			vim.notify("chatgpt-search-templater: no template resolved for the action.", vim.log.levels.WARN)
+			return
+		end
+
+		local rendered_query = render_query_text(payload.spec, template, raw_text)
+		local trimmed_query = trim_text(rendered_query)
+		if trimmed_query == "" then
+			vim.notify("chatgpt-search-templater: resolved query is empty.", vim.log.levels.WARN)
+			return
+		end
+
+		local encoded_query = url_encode(trimmed_query)
+		local url = build_url(payload.spec, encoded_query, template)
+		if not url then
+			vim.notify("chatgpt-search-templater: failed to resolve a URL template.", vim.log.levels.ERROR)
+			return
+		end
+		open_url(url)
+	end
+
+	local function select_default_template()
+		local enabled = collect_enabled_templates(payload.default_templates)
+		if #enabled > 0 then
+			return enabled[1]
+		end
+		return find_default_template(payload.spec)
+	end
+
+	local function open_default_with_text(text)
+		local cleaned = trim_text(text)
+		if cleaned == "" then
+			vim.notify("chatgpt-search-templater: search text is empty.", vim.log.levels.WARN)
+			return
+		end
+
+		local template = select_default_template()
+		if not template then
+			vim.notify("chatgpt-search-templater: no default template available.", vim.log.levels.WARN)
+			return
+		end
+
+		open_template_for_text(template, cleaned)
+	end
 
 	local function open_with_text(text)
 		local cleaned = trim_text(text)
@@ -239,25 +321,13 @@ function M.apply(options, payload)
 		end
 		local enabled_templates = collect_enabled_templates(payload.default_templates)
 
-		local function open_for_template(template)
-			local rendered_query = render_query_text(payload.spec, template, cleaned)
-			local trimmed_query = trim_text(rendered_query)
-			if trimmed_query == "" then
-				vim.notify("chatgpt-search-templater: resolved query is empty.", vim.log.levels.WARN)
-				return
-			end
-
-			local encoded_query = url_encode(trimmed_query)
-			local url = build_url(payload.spec, encoded_query, template)
-			if not url then
-				vim.notify("chatgpt-search-templater: failed to resolve a URL template.", vim.log.levels.ERROR)
-				return
-			end
-			open_url(url)
+		if #enabled_templates == 0 then
+			open_template_for_text(select_default_template(), cleaned)
+			return
 		end
 
-		if #enabled_templates <= 1 then
-			open_for_template(enabled_templates[1])
+		if #enabled_templates == 1 then
+			open_template_for_text(enabled_templates[1], cleaned)
 			return
 		end
 
@@ -268,20 +338,20 @@ function M.apply(options, payload)
 			if not choice then
 				return
 			end
-			open_for_template(choice)
+			open_template_for_text(choice, cleaned)
 		end)
-	end
-
-	if type(normal_key) == "string" and normal_key ~= "" then
-		apply_mapping("n", normal_key, function()
-			open_with_text(vim.fn.expand("<cword>"))
-		end, "ChatGPT search (cursor word)", force)
 	end
 
 	if type(visual_key) == "string" and visual_key ~= "" then
 		apply_mapping("x", visual_key, function()
 			open_with_text(collect_visual_selection())
 		end, "ChatGPT search (visual selection)", force)
+	end
+
+	if type(default_visual_key) == "string" and default_visual_key ~= "" then
+		apply_mapping("x", default_visual_key, function()
+			open_default_with_text(collect_visual_selection())
+		end, "ChatGPT search (default template, visual selection)", force)
 	end
 end
 

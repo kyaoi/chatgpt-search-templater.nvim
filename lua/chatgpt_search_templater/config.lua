@@ -5,8 +5,8 @@ local defaults = {
   spec_data = nil,
   use_default_keymaps = true,
   keymaps = {
-    normal = '<leader>cg',
     visual = '<leader>cg',
+    default_visual = '<leader>cG',
   },
 }
 
