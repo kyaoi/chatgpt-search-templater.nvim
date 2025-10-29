@@ -1,104 +1,119 @@
-# Usage
+# Usage Guide
 
-The plugin exposes a single entry point:
+This document explains how to configure and operate
+`chatgpt-search-templater.nvim` from Neovim.
+
+## 1. Basic Setup
+
+1. Install the plugin with your preferred manager (see the README for examples).
+2. Call `setup()` during startup. The simplest configuration mirrors the
+   bundled template specification and registers the default keymaps:
+
+   ```lua
+   require("chatgpt_search_templater").setup()
+   ```
+
+3. Visually select text and press `<leader>cg` to choose a template, or
+   `<leader>cG` to launch the default template immediately.
+
+The plugin only binds visual-mode mappings. If you prefer alternative keys,
+override them via the `keymaps` table.
+
+### Reference:
+For detailed examples of directory structure and configurations, consult the [Example Configuration](./example.md) document.
+
+## 2. Providing Your Own Templates
+
+You can supply the Chrome extension template specification either as Lua data or
+as JSON.
+
+### 2.1 JSON via `spec_path`
 
 ```lua
-local templater = require('chatgpt_search_templater')
-local payload = templater.setup({
-  -- Both spec_path and spec_data are optional.
-  spec_path = vim.fn.stdpath('config') .. '/chatgpt/spec.json',
+require("chatgpt_search_templater").setup({
+  spec_path = vim.fn.stdpath("config") .. "/chatgpt/spec.json",
 })
-
-print(vim.inspect(payload.placeholders))
-print(vim.inspect(payload.default_templates))
 ```
 
-`payload.spec` mirrors the template spec used by the Chrome extension. The
-plugin resolves the spec in the following order:
+- Always resolve `spec_path` to an absolute path.
+- The JSON schema matches the Chrome extension exactly.
 
-1. `spec_data` passed to `setup()`
-2. JSON content loaded via `spec_path`
-3. Bundled spec from `lua/chatgpt_search_templater/spec_data.lua`
-
-Use `payload.placeholders` to render placeholder tooltips or validations and
-`payload.default_templates` to seed UI components inside Neovim.
-
-When you need to override the spec directly from Lua, pass a `spec_data` table:
+### 2.2 Lua table via `spec_data`
 
 ```lua
-require('chatgpt_search_templater').setup({
+require("chatgpt_search_templater").setup({
   spec_data = {
-    placeholders = { '{TEXT}' },
+    placeholders = { "{TEXT}" },
     defaultTemplates = {
-      { id = 'custom', label = 'Custom', url = 'https://chatgpt.com/?q={TEXT}', queryTemplate = '{TEXT}', enabled = true },
+      {
+        id = "default",
+        label = "Quick lookup",
+        url = "https://chatgpt.com/?q={TEXT}",
+        queryTemplate = "Summarise:\n\n{TEXT}",
+        default = true,
+        enabled = true,
+      },
     },
   },
 })
 ```
 
-You can also mirror the Chrome extension JSON format directly. For example,
-create a JSON file with the following contents:
+When both `spec_data` and `spec_path` are provided, `spec_data` wins.
 
-```json
-{
-  "hardLimit": 3000,
-  "parentMenuTitle": "ChatGPTで検索",
-  "templates": [
-    {
-      "id": "template-1",
-      "label": "日本語訳",
-      "url": "https://chatgpt.com/?q={TEXT}",
-      "queryTemplate": "以下の文章を日本語訳してください。 またこの中で使われている単語や熟語について解説するとともに、文中の語句で簡単な物語を作成してください。\n\n{TEXT}",
-      "default": true,
-      "enabled": true,
-      "hintsSearch": true,
-      "temporaryChat": false,
-      "model": "gpt-5-thinking"
-    },
-    {
-      "id": "template-2",
-      "label": "学習",
-      "url": "https://chatgpt.com/?q={TEXT}",
-      "queryTemplate": "以下の文章について初学者にもわかるように丁寧に解説してください。 また、合わせてこの内容に関する抑えておいたほうがいいことなどあれば教えて下さい。\n\n{TEXT}",
-      "enabled": false,
-      "hintsSearch": true,
-      "temporaryChat": false,
-      "model": "gpt-5-thinking"
-    }
-  ]
-}
-```
+For detailed configuration examples, see the [Example Configuration](./example.md).
 
-Then point the plugin at it:
+## 3. Template Flags and Placeholders
+
+- `default` / `isDefault`: marks a template as the primary option for the quick
+  launch keymap and the top entry in the picker.
+- `enabled`: controls whether the template is selectable. Disabled templates are
+  ignored unless you customise the picker yourself.
+- `queryTemplate`: can reference `{TEXT}` or any placeholder listed under
+  `placeholders`. The plugin resolves whitespace and replaces placeholders before
+  encoding the URL.
+
+## 4. Keymap Reference
+
+| Mapping        | Mode   | Description                                  |
+|----------------|--------|----------------------------------------------|
+| `<leader>cg`   | Visual | Open the template picker (`vim.ui.select`).  |
+| `<leader>cG`   | Visual | Use the default template immediately.        |
+
+Set `use_default_keymaps = false` if you prefer to manage mappings manually.
 
 ```lua
-require('chatgpt_search_templater').setup({
-  spec_path = vim.fn.stdpath('config') .. '/chatgpt/spec.json',
+require("chatgpt_search_templater").setup({
+  use_default_keymaps = false,
 })
 ```
 
-Templates marked with `"default": true` (or `"isDefault": true`) are
-prioritised by the quick-launch keymap. When nothing is marked, the first
-enabled template is used.
+## 5. Consuming the Returned Payload
 
-`setup()` also installs a default keymap that opens the first enabled template in
-your browser when you are in visual mode. A separate key skips the picker and
-launches the template marked as default (`"default": true` or `"isDefault": true`):
-
-```text
-Visual (picker): <leader>cg
-Visual (default): <leader>cG
-```
-
-Normal mode での検索はサポートしていません。必ずビジュアル選択から実行してください。
-
-Disable it entirely with `use_default_keymaps = false`, or override the bindings:
+`setup()` returns a table with useful data:
 
 ```lua
-require('chatgpt_search_templater').setup({
-  keymaps = {
-    visual = '<leader>qs',
-    default_visual = '<leader>qS',
-  },
-})
+local payload = require("chatgpt_search_templater").setup()
+
+-- full spec (normalised)
+print(vim.inspect(payload.spec))
+
+-- list of enabled templates in selection order
+print(vim.inspect(payload.default_templates))
+
+-- available placeholders for validation tooling
+print(vim.inspect(payload.placeholders))
 ```
+
+This is handy when building custom pickers, status lines, or linting logic that
+understands the shared template schema.
+
+## 6. Troubleshooting
+
+- **“search text is empty”**: ensure you have an active visual selection. The
+  plugin trims whitespace and refuses to continue with empty input.
+- **Templates appear in the wrong order**: add `"default": true` to the template
+  you want to prioritise. Enabled defaults are always first.
+- **Browser does not open**: confirm that your platform command (`xdg-open`,
+  `open`, `wslview`, or `start`) is accessible from `$PATH`.
+
+For additional context, refer to the README or the Japanese documentation.
