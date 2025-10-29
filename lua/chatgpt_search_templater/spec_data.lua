@@ -31,5 +31,5 @@ return {
         defaultParentMenuTitle = "ChatGPTで検索",
         parentMenuTitle = "ChatGPTで検索",
         defaultTemplates = default_templates,
-        templates = default_templates,
+        templates = vim.deepcopy(default_templates),
 }
