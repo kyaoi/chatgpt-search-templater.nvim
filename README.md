@@ -1,5 +1,7 @@
 # chatgpt-search-templater.nvim
 
+Parts of this plugin were generated with AI assistants (OpenAI Codex and GitHub Copilot). I’ve reviewed and adapted the code, but there may still be rough edges. Feedback and PRs are welcome.
+
 Neovim plugin companion for the Chrome extension. It ships with the same
 template specification baked into `lua/chatgpt_search_templater/spec_data.lua`
 and exposes helpers for reading placeholders and default templates inside
@@ -10,7 +12,6 @@ Neovim automation.
 - Consume the shared ChatGPT template specification without depending on
   TypeScript assets.
 - Provide a `setup()` entry point that exposes templates/placeholders.
-- Lightweight smoke test runnable from the command line (`make check`).
 
 ## Installation
 
@@ -83,13 +84,3 @@ require('chatgpt_search_templater').setup({
   },
 })
 ```
-
-## Development
-
-Run the checks from the repository root:
-
-```bash
-make check
-```
-
-The smoke test requires Neovim (`nvim`) with `vim.json` support (Neovim 0.8+).
