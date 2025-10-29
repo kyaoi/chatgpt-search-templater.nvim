@@ -86,7 +86,7 @@ local function collect_visual_selection()
 	return table.concat(lines, "\n")
 end
 
-local function replace_placeholders(template, encoded_text, placeholders)
+local function replace_placeholders(template, value, placeholders)
 	if not template or template == "" then
 		return template
 	end
@@ -95,14 +95,38 @@ local function replace_placeholders(template, encoded_text, placeholders)
 	if type(placeholders) == "table" then
 		for _, placeholder in ipairs(placeholders) do
 			result = result:gsub(vim.pesc(placeholder), function()
-				return encoded_text
+				return value
 			end)
 		end
 	end
 	result = result:gsub("{TEXT}", function()
-		return encoded_text
+		return value
 	end)
 	return result
+end
+
+local function resolve_query_template(spec_payload, template)
+	if type(template) == "table" then
+		local candidate = template.queryTemplate
+		if type(candidate) == "string" and candidate ~= "" then
+			return candidate
+		end
+	end
+
+	if spec_payload then
+		local fallback = spec_payload.defaultQueryTemplate
+		if type(fallback) == "string" and fallback ~= "" then
+			return fallback
+		end
+	end
+
+	return "{TEXT}"
+end
+
+local function render_query_text(spec_payload, template, text)
+	local query_template = resolve_query_template(spec_payload, template)
+	local placeholders = spec_payload and spec_payload.placeholders or {}
+	return replace_placeholders(query_template, text, placeholders)
 end
 
 local function find_default_template(spec_payload)
@@ -213,12 +237,18 @@ function M.apply(options, payload)
 			vim.notify("chatgpt-search-templater: search text is empty.", vim.log.levels.WARN)
 			return
 		end
-
-		local encoded = url_encode(cleaned)
 		local enabled_templates = collect_enabled_templates(payload.default_templates)
 
 		local function open_for_template(template)
-			local url = build_url(payload.spec, encoded, template)
+			local rendered_query = render_query_text(payload.spec, template, cleaned)
+			local trimmed_query = trim_text(rendered_query)
+			if trimmed_query == "" then
+				vim.notify("chatgpt-search-templater: resolved query is empty.", vim.log.levels.WARN)
+				return
+			end
+
+			local encoded_query = url_encode(trimmed_query)
+			local url = build_url(payload.spec, encoded_query, template)
 			if not url then
 				vim.notify("chatgpt-search-templater: failed to resolve a URL template.", vim.log.levels.ERROR)
 				return
