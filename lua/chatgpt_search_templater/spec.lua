@@ -70,20 +70,17 @@ local function normalize_spec(data)
     normalized.parentMenuTitle = normalized.defaultParentMenuTitle
   end
 
-  if normalized.defaultTemplateUrl == nil and type(normalized.defaultTemplates) == 'table' then
+  if type(normalized.defaultTemplates) == 'table' then
     local first = normalized.defaultTemplates[1]
-    if type(first) == 'table' and type(first.url) == 'string' then
-      normalized.defaultTemplateUrl = first.url
+    if type(first) == 'table' then
+      if normalized.defaultTemplateUrl == nil and type(first.url) == 'string' then
+        normalized.defaultTemplateUrl = first.url
+      end
+      if normalized.defaultQueryTemplate == nil and type(first.queryTemplate) == 'string' then
+        normalized.defaultQueryTemplate = first.queryTemplate
+      end
     end
   end
-
-  if normalized.defaultQueryTemplate == nil and type(normalized.defaultTemplates) == 'table' then
-    local first = normalized.defaultTemplates[1]
-    if type(first) == 'table' and type(first.queryTemplate) == 'string' then
-      normalized.defaultQueryTemplate = first.queryTemplate
-    end
-  end
-
   return normalized
 end
 
