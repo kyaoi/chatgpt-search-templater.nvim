@@ -80,7 +80,7 @@ local function replace_placeholders(template, encoded_text, placeholders)
 end
 
 local function find_default_template(spec_payload)
-  local list = spec_payload.defaultTemplates or {}
+  local list = spec_payload.defaultTemplates or spec_payload.templates or {}
   for _, template in ipairs(list) do
     if template.enabled == nil or template.enabled == true then
       return template
