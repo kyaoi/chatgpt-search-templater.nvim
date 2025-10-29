@@ -38,6 +38,52 @@ local function load_from_json(path)
   return decoded, nil
 end
 
+local function copy_templates(list)
+  if type(list) ~= 'table' then
+    return nil
+  end
+  return vim.deepcopy(list)
+end
+
+local function normalize_spec(data)
+  if type(data) ~= 'table' then
+    return {}
+  end
+
+  local normalized = vim.deepcopy(data)
+
+  if normalized.templates == nil and type(normalized.defaultTemplates) == 'table' then
+    normalized.templates = copy_templates(normalized.defaultTemplates)
+  elseif normalized.defaultTemplates == nil and type(normalized.templates) == 'table' then
+    normalized.defaultTemplates = copy_templates(normalized.templates)
+  end
+
+  if normalized.defaultHardLimit == nil and normalized.hardLimit ~= nil then
+    normalized.defaultHardLimit = normalized.hardLimit
+  elseif normalized.hardLimit == nil and normalized.defaultHardLimit ~= nil then
+    normalized.hardLimit = normalized.defaultHardLimit
+  end
+
+  if normalized.defaultParentMenuTitle == nil and normalized.parentMenuTitle ~= nil then
+    normalized.defaultParentMenuTitle = normalized.parentMenuTitle
+  elseif normalized.parentMenuTitle == nil and normalized.defaultParentMenuTitle ~= nil then
+    normalized.parentMenuTitle = normalized.defaultParentMenuTitle
+  end
+
+  if type(normalized.defaultTemplates) == 'table' then
+    local first = normalized.defaultTemplates[1]
+    if type(first) == 'table' then
+      if normalized.defaultTemplateUrl == nil and type(first.url) == 'string' then
+        normalized.defaultTemplateUrl = first.url
+      end
+      if normalized.defaultQueryTemplate == nil and type(first.queryTemplate) == 'string' then
+        normalized.defaultQueryTemplate = first.queryTemplate
+      end
+    end
+  end
+  return normalized
+end
+
 local function resolve_spec()
   if override_spec then
     return clone(override_spec)
@@ -53,10 +99,10 @@ local function resolve_spec()
         )
       )
     end
-    return data
+    return normalize_spec(data)
   end
 
-  return clone(spec_data)
+  return normalize_spec(spec_data)
 end
 
 ---@param path string|nil
@@ -77,7 +123,7 @@ function M.set_spec_data(data)
   elseif type(data) ~= 'table' then
     error('chatgpt_search_templater: spec data must be a table')
   else
-    override_spec = data
+    override_spec = normalize_spec(data)
   end
   cached_spec = nil
 end

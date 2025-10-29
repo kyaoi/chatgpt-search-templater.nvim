@@ -36,6 +36,46 @@ require('chatgpt_search_templater').setup({
 })
 ```
 
+You can also mirror the Chrome extension JSON format directly. For example,
+create a JSON file with the following contents:
+
+```json
+{
+  "hardLimit": 3000,
+  "parentMenuTitle": "ChatGPTで検索",
+  "templates": [
+    {
+      "id": "template-1",
+      "label": "日本語訳",
+      "url": "https://chatgpt.com/?q={TEXT}",
+      "queryTemplate": "以下の文章を日本語訳してください。 またこの中で使われている単語や熟語について解説するとともに、文中の語句で簡単な物語を作成してください。\n\n{TEXT}",
+      "enabled": true,
+      "hintsSearch": true,
+      "temporaryChat": false,
+      "model": "gpt-5-thinking"
+    },
+    {
+      "id": "template-2",
+      "label": "学習",
+      "url": "https://chatgpt.com/?q={TEXT}",
+      "queryTemplate": "以下の文章について初学者にもわかるように丁寧に解説してください。 また、合わせてこの内容に関する抑えておいたほうがいいことなどあれば教えて下さい。\n\n{TEXT}",
+      "enabled": false,
+      "hintsSearch": true,
+      "temporaryChat": false,
+      "model": "gpt-5-thinking"
+    }
+  ]
+}
+```
+
+Then point the plugin at it:
+
+```lua
+require('chatgpt_search_templater').setup({
+  spec_path = vim.fn.stdpath('config') .. '/chatgpt/spec.json',
+})
+```
+
 `setup()` also installs a default keymap that opens the first enabled template in
 your browser:
 
