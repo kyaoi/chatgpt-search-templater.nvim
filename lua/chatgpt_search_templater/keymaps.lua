@@ -424,6 +424,7 @@ function M.apply(options, payload)
 		set_win_option(input_win, "cursorline", true)
 
 		local function close_input()
+			pcall(vim.cmd, "stopinsert")
 			if vim.api.nvim_win_is_valid(input_win) then
 				vim.api.nvim_win_close(input_win, true)
 			end
@@ -446,13 +447,21 @@ function M.apply(options, payload)
 
 			close_input()
 
-			local template = select_default_template()
-			if not template then
-				vim.notify("chatgpt-search-templater: no default template available.", vim.log.levels.WARN)
+			local default_url_template = payload.spec and payload.spec.defaultTemplateUrl or ""
+			if default_url_template == "" then
+				vim.notify("chatgpt-search-templater: no default URL template available.", vim.log.levels.WARN)
 				return
 			end
 
-			open_template_for_text(template, query_text)
+			local encoded_query = url_encode(query_text)
+			local placeholders = payload.spec and payload.spec.placeholders or {}
+			local final_url = replace_placeholders(default_url_template, encoded_query, placeholders)
+			if not final_url or final_url == "" then
+				vim.notify("chatgpt-search-templater: failed to construct search URL.", vim.log.levels.ERROR)
+				return
+			end
+
+			open_url(final_url)
 		end
 
 		vim.keymap.set({ "n", "i" }, "<C-s>", function()
