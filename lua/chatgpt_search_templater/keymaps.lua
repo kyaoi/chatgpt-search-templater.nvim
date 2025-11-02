@@ -186,6 +186,12 @@ local function format_template_label(template)
 	return template.label or template.id or template.url or "<unnamed template>"
 end
 
+local function user_input_query()
+	local prompt = "Enter search query for ChatGPT:"
+	local input = vim.fn.input(prompt .. " ")
+	return input
+end
+
 local function collect_enabled_templates(default_templates)
 	local defaults, others = {}, {}
 	if type(default_templates) == "table" then
@@ -265,6 +271,7 @@ function M.apply(options, payload)
 	local keymaps = options.keymaps or {}
 	local visual_key = keymaps.visual
 	local default_visual_key = keymaps.default_visual
+	local query_input_key = keymaps.query_input
 	local force = keymaps.force == true
 
 	local function open_template_for_text(template, raw_text)
@@ -342,6 +349,14 @@ function M.apply(options, payload)
 		end)
 	end
 
+	local function open_with_input(text)
+		local cleaned = trim_text(text)
+		local query = user_input_query()
+		vim.notify("chatgpt-search-templater: search query: " .. query, vim.log.levels.INFO)
+		--
+		-- open_with_text(cleaned)
+	end
+
 	if type(visual_key) == "string" and visual_key ~= "" then
 		apply_mapping("x", visual_key, function()
 			open_with_text(collect_visual_selection())
@@ -352,6 +367,12 @@ function M.apply(options, payload)
 		apply_mapping("x", default_visual_key, function()
 			open_default_with_text(collect_visual_selection())
 		end, "ChatGPT search (default template, visual selection)", force)
+	end
+
+	if type(query_input_key) == "string" and query_input_key ~= "" then
+		apply_mapping("x", query_input_key, function()
+			open_with_input(collect_visual_selection())
+		end, "ChatGPT search (input query)", force)
 	end
 end
 
