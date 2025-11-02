@@ -86,6 +86,22 @@ local function collect_visual_selection()
 	return table.concat(lines, "\n")
 end
 
+local function set_buf_option(bufnr, name, value)
+	if vim.api.nvim_set_option_value then
+		vim.api.nvim_set_option_value(name, value, { buf = bufnr })
+	else
+		vim.api.nvim_buf_set_option(bufnr, name, value)
+	end
+end
+
+local function set_win_option(winid, name, value)
+	if vim.api.nvim_set_option_value then
+		vim.api.nvim_set_option_value(name, value, { win = winid })
+	else
+		vim.api.nvim_win_set_option(winid, name, value)
+	end
+end
+
 local function replace_placeholders(template, value, placeholders)
 	if not template or template == "" then
 		return template
@@ -351,10 +367,107 @@ function M.apply(options, payload)
 
 	local function open_with_input(text)
 		local cleaned = trim_text(text)
-		local query = user_input_query()
-		vim.notify("chatgpt-search-templater: search query: " .. query, vim.log.levels.INFO)
-		--
-		-- open_with_text(cleaned)
+		local default_lines
+		if cleaned ~= "" then
+			default_lines = vim.split(cleaned, "\n", { plain = true })
+		else
+			default_lines = { "" }
+		end
+
+		local source_win = vim.api.nvim_get_current_win()
+		local input_buf = vim.api.nvim_create_buf(false, true)
+		if input_buf == 0 then
+			vim.notify("chatgpt-search-templater: failed to create input buffer.", vim.log.levels.ERROR)
+			return
+		end
+
+		set_buf_option(input_buf, "bufhidden", "wipe")
+		set_buf_option(input_buf, "buftype", "nofile")
+		set_buf_option(input_buf, "swapfile", false)
+		set_buf_option(input_buf, "modifiable", true)
+		set_buf_option(input_buf, "filetype", "chatgpt_search_templater_input")
+		vim.api.nvim_buf_set_lines(input_buf, 0, -1, false, default_lines)
+
+		local columns = vim.o.columns
+		local lines = vim.o.lines
+		local width = math.max(50, math.floor(columns * 0.6))
+		local height = math.max(6, math.floor(lines * 0.3))
+		local row = math.floor((lines - height) / 2 - 1)
+		local col = math.floor((columns - width) / 2)
+
+		if row < 0 then
+			row = 0
+		end
+		if col < 0 then
+			col = 0
+		end
+
+		local input_win = vim.api.nvim_open_win(input_buf, true, {
+			relative = "editor",
+			style = "minimal",
+			border = "rounded",
+			title = "ChatGPT Search Query",
+			title_pos = "center",
+			width = width,
+			height = height,
+			row = row,
+			col = col,
+			zindex = 200,
+		})
+
+		if input_win == 0 then
+			vim.api.nvim_buf_delete(input_buf, { force = true })
+			vim.notify("chatgpt-search-templater: failed to open input window.", vim.log.levels.ERROR)
+			return
+		end
+
+		set_win_option(input_win, "cursorline", true)
+
+		local function close_input()
+			if vim.api.nvim_win_is_valid(input_win) then
+				vim.api.nvim_win_close(input_win, true)
+			end
+			if vim.api.nvim_win_is_valid(source_win) then
+				vim.api.nvim_set_current_win(source_win)
+			end
+		end
+
+		local function submit_query()
+			if not vim.api.nvim_buf_is_valid(input_buf) then
+				close_input()
+				return
+			end
+			local lines_content = vim.api.nvim_buf_get_lines(input_buf, 0, -1, false)
+			local query_text = trim_text(table.concat(lines_content, "\n"))
+			if query_text == "" then
+				vim.notify("chatgpt-search-templater: search query is empty.", vim.log.levels.WARN)
+				return
+			end
+
+			close_input()
+
+			local template = select_default_template()
+			if not template then
+				vim.notify("chatgpt-search-templater: no default template available.", vim.log.levels.WARN)
+				return
+			end
+
+			open_template_for_text(template, query_text)
+		end
+
+		vim.keymap.set({ "n", "i" }, "<C-s>", function()
+			vim.schedule(submit_query)
+		end, { buffer = input_buf, silent = true })
+
+		vim.keymap.set({ "n", "i" }, "<Esc>", function()
+			vim.schedule(close_input)
+		end, { buffer = input_buf, silent = true })
+
+		vim.keymap.set("n", "q", function()
+			vim.schedule(close_input)
+		end, { buffer = input_buf, silent = true })
+
+		vim.cmd("startinsert")
 	end
 
 	if type(visual_key) == "string" and visual_key ~= "" then
