@@ -186,24 +186,29 @@ local function format_template_label(template)
 	return template.label or template.id or template.url or "<unnamed template>"
 end
 
-local function input_open()
-	local input_buf = vim.api.nvim_create_buf(false, true) -- scratch(nofile)
-	vim.bo[input_buf].bufhidden = "wipe"
-	vim.bo[input_buf].swapfile = false
-	vim.bo[input_buf].modifiable = true
-	vim.bo[input_buf].filetype = "chatgpt_query"
+--- @param opts table|nil
+--- @param on_submit function
+local function input_open(opts, on_submit)
+	opts = opts or {}
+	assert(type(on_submit) == "function", "on_submit callback is required")
+
+	local buf = vim.api.nvim_create_buf(false, true) -- scratch (nofile)
+	vim.bo[buf].bufhidden = "wipe"
+	vim.bo[buf].swapfile = false
+	vim.bo[buf].modifiable = true
+	vim.bo[buf].filetype = opts.filetype or "biginput"
 
 	local columns, lines = vim.o.columns, vim.o.lines
-	local width = math.max(50, math.floor(columns * 0.6))
-	local height = math.max(6, math.floor(lines * 0.3))
+	local width = opts.width or math.max(60, math.floor(columns * 0.6))
+	local height = opts.height or math.max(10, math.floor(lines * 0.3))
 	local row = math.max(0, math.floor((lines - height) / 2 - 1))
 	local col = math.max(0, math.floor((columns - width) / 2))
 
-	local input_win = vim.api.nvim_open_win(input_buf, true, {
+	local win = vim.api.nvim_open_win(buf, true, {
 		relative = "editor",
 		style = "minimal",
-		border = "rounded",
-		title = "ChatGPT Search Query",
+		border = opts.border or "rounded",
+		title = opts.title or "Input",
 		title_pos = "center",
 		width = width,
 		height = height,
@@ -211,43 +216,78 @@ local function input_open()
 		col = col,
 		zindex = 200,
 	})
-
-	if input_win == 0 then
-		vim.api.nvim_buf_delete(input_buf, { force = true })
-		vim.notify("failed to open input window.", vim.log.levels.ERROR)
+	if win == 0 then
+		vim.api.nvim_buf_delete(buf, { force = true })
+		vim.notify("biginput: failed to open window", vim.log.levels.ERROR)
 		return
 	end
 
-	local function close_win()
-		if vim.api.nvim_win_is_valid(input_win) then
-			vim.api.nvim_win_close(input_win, true)
+	-- 初期表示（任意）
+	local lines_init = {}
+	if opts.prompt and #opts.prompt > 0 then
+		table.insert(lines_init, opts.prompt)
+		table.insert(lines_init, "")
+	end
+	if opts.preset and #opts.preset > 0 then
+		for s in tostring(opts.preset):gmatch("([^\n]*)\n?") do
+			if s ~= "" or #lines_init > 0 then
+				table.insert(lines_init, s)
+			end
 		end
-		if vim.api.nvim_buf_is_valid(input_buf) then
-			vim.api.nvim_buf_delete(input_buf, { force = true })
+	end
+	if #lines_init > 0 then
+		vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines_init)
+	end
+
+	-- ダブル発火防止
+	local fired = false
+	local function finish(text) -- text=nil でキャンセル
+		if fired then
+			return
 		end
+		fired = true
+		local function close()
+			if vim.api.nvim_win_is_valid(win) then
+				vim.api.nvim_win_close(win, true)
+			end
+			if vim.api.nvim_buf_is_valid(buf) then
+				vim.api.nvim_buf_delete(buf, { force = true })
+			end
+		end
+		close()
+		-- ウィンドウを閉じてから実行（UIと競合しないように）
+		vim.schedule(function()
+			on_submit(text)
+		end)
 	end
 
 	local function submit()
-		if not vim.api.nvim_buf_is_valid(input_buf) then
-			close_win()
-			return
+		if not vim.api.nvim_buf_is_valid(buf) then
+			return finish(nil)
 		end
-		local lines = vim.api.nvim_buf_get_lines(input_buf, 0, -1, false)
-		local query = table.concat(lines, "\n")
-		vim.g.chatgpt_last_query = query -- グローバルに保存
-		pcall(vim.fn.setreg, '"', query) -- 無名レジスタにも入れるので p で貼れる
-		vim.notify(("Saved query (%d chars)"):format(#query), vim.log.levels.INFO)
-		close_win()
+		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+		-- 先頭に prompt を表示していたら除く
+		if opts.prompt and #lines > 0 and lines[1] == opts.prompt then
+			table.remove(lines, 1)
+			if #lines > 0 and lines[1] == "" then
+				table.remove(lines, 1)
+			end
+		end
+		finish(table.concat(lines, "\n"))
 	end
 
 	local function cancel()
-		close_win()
+		finish(nil)
 	end
 
-	-- キーマップ（:wは使わない）
-	vim.keymap.set({ "n", "i" }, "<Esc>", cancel, { buffer = input_buf, silent = true })
-	vim.keymap.set({ "n", "i" }, "<C-s>", submit, { buffer = input_buf, silent = true })
+	-- キーマップ（:w は使わない）
+	vim.keymap.set({ "n", "i" }, "<C-s>", submit, { buffer = buf, silent = true })
+	vim.keymap.set({ "n", "i" }, "<Esc>", cancel, { buffer = buf, silent = true })
+	vim.keymap.set("n", "q", cancel, { buffer = buf, silent = true })
 
+	-- カーソル位置
+	local start_row = (#lines_init > 0) and #lines_init or 1
+	vim.api.nvim_win_set_cursor(win, { start_row, 0 })
 	vim.cmd("startinsert")
 end
 
@@ -417,11 +457,13 @@ function M.apply(options, payload)
 
 	local function open_with_input(text)
 		local cleaned = trim_text(text)
-		local query = input_open()
-		vim.notify("chatgpt-search-templater: search query: \n" .. query, vim.log.levels.INFO)
-		vim.notify("chatgpt-search-templater: search cleaned: \n" .. cleaned, vim.log.levels.INFO)
+		local function on_submit(query)
+			vim.notify("chatgpt-search-templater: search query: \n" .. query, vim.log.levels.INFO)
+			vim.notify("chatgpt-search-templater: search cleaned: \n" .. cleaned, vim.log.levels.INFO)
+			-- open_template_for_text(select_default_template(), query)
+		end
 
-		-- open_with_text(cleaned)
+		input_open({}, on_submit)
 	end
 
 	if type(visual_key) == "string" and visual_key ~= "" then
