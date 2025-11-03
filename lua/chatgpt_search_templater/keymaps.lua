@@ -246,6 +246,7 @@ local function input_open(opts, on_submit)
 			return
 		end
 		fired = true
+		pcall(vim.cmd, "stopinsert")
 		local function close()
 			if vim.api.nvim_win_is_valid(win) then
 				vim.api.nvim_win_close(win, true)

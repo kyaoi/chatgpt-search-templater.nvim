@@ -20,11 +20,11 @@ local defaults = {
 		separator = "\n\n",
 		fallback_text = "",
 		template = {
-			label = "Ad-hoc Query",
-			url = nil,
-			model = nil,
-			hintsSearch = nil,
-			temporaryChat = nil,
+			label = "カスタムクエリ入力",
+			url = "https://chatgpt.com/?q={TEXT}",
+			model = "gpt-5",
+			hintsSearch = false,
+			temporaryChat = false,
 		},
 	},
 }
