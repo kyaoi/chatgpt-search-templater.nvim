@@ -7,10 +7,10 @@ function M.defaults()
 	return spec.default_templates()
 end
 
--- ---@return table
--- function M.custom()
--- 	return spec.custom_query_template()
--- end
+---@return table
+function M.custom()
+	return spec.custom_template()
+end
 
 ---@param templates table
 ---@return table
