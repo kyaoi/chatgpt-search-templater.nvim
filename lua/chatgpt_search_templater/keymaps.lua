@@ -175,7 +175,74 @@ local function build_url(spec_payload, encoded_text, template_override)
 		return nil
 	end
 
-	return replace_placeholders(url_template, encoded_text, placeholders)
+	local function set_query_param(url, name, value)
+		if not value or value == "" then
+			return url
+		end
+		local encoded_value = url_encode(tostring(value))
+		local escaped = vim.pesc(name)
+		local updated, count = url:gsub("([%?&])" .. escaped .. "=[^&]*", function(prefix)
+			return prefix .. name .. "=" .. encoded_value
+		end, 1)
+		if count == 0 then
+			local separator = url:find("?", 1, true) and "&" or "?"
+			updated = url .. separator .. name .. "=" .. encoded_value
+		end
+		return updated
+	end
+
+	local function normalize_hints(value)
+		if value == nil then
+			return nil
+		end
+		if type(value) == "boolean" then
+			return value and "search" or nil
+		end
+		if type(value) == "string" then
+			local trimmed = trim_text(value)
+			if trimmed ~= "" then
+				return trimmed
+			end
+		end
+		return nil
+	end
+
+	local function normalize_bool_param(value)
+		if value == nil then
+			return nil
+		end
+		if type(value) == "boolean" then
+			return value and "true" or nil
+		end
+		if type(value) == "string" then
+			local trimmed = trim_text(value)
+			if trimmed ~= "" then
+				return trimmed
+			end
+		end
+		return nil
+	end
+
+	local url = replace_placeholders(url_template, encoded_text, placeholders)
+
+	local model = template.model
+	if type(model) == "string" then
+		model = trim_text(model)
+	end
+	local hints_value = normalize_hints(template.hintsSearch)
+	local temporary_chat_value = normalize_bool_param(template.temporaryChat)
+
+	if model and model ~= "" then
+		url = set_query_param(url, "model", model)
+	end
+	if hints_value then
+		url = set_query_param(url, "hints", hints_value)
+	end
+	if temporary_chat_value then
+		url = set_query_param(url, "temporary-chat", temporary_chat_value)
+	end
+
+	return url
 end
 
 local function format_template_label(template)
