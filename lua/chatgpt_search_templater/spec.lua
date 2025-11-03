@@ -142,7 +142,7 @@ end
 ---@return table
 function M.custom_template()
 	local spec = M.load()
-	return clone(spec.customQueryTemplate)
+	return clone(spec.customQueryTemplate or {})
 end
 
 ---@return table

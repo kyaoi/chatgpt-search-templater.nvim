@@ -265,15 +265,15 @@ local function input_open(opts, on_submit)
 		if not vim.api.nvim_buf_is_valid(buf) then
 			return finish(nil)
 		end
-		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+		local lines_content = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 		-- 先頭に prompt を表示していたら除く
-		if opts.prompt and #lines > 0 and lines[1] == opts.prompt then
-			table.remove(lines, 1)
-			if #lines > 0 and lines[1] == "" then
-				table.remove(lines, 1)
+		if opts.prompt and #lines_content > 0 and lines_content[1] == opts.prompt then
+			table.remove(lines_content, 1)
+			if #lines_content > 0 and lines_content[1] == "" then
+				table.remove(lines_content, 1)
 			end
 		end
-		finish(table.concat(lines, "\n"))
+		finish(table.concat(lines_content, "\n"))
 	end
 
 	local function cancel()
@@ -289,13 +289,6 @@ local function input_open(opts, on_submit)
 	local start_row = (#lines_init > 0) and #lines_init or 1
 	vim.api.nvim_win_set_cursor(win, { start_row, 0 })
 	vim.cmd("startinsert")
-end
-
-local function user_input_query(text)
-	local cleaned = trim_text(text)
-
-	local prompt = "Enter search query for ChatGPT:"
-	local input = vim.fn.input(prompt .. " ")
 end
 
 local function collect_enabled_templates(default_templates)
@@ -457,13 +450,98 @@ function M.apply(options, payload)
 
 	local function open_with_input(text)
 		local cleaned = trim_text(text)
-		local function on_submit(query)
-			vim.notify("chatgpt-search-templater: search query: \n" .. query, vim.log.levels.INFO)
-			vim.notify("chatgpt-search-templater: search cleaned: \n" .. cleaned, vim.log.levels.INFO)
-			-- open_template_for_text(select_default_template(), query)
+		local query_input_opts = options.query_input or {}
+
+		local input_opts = {}
+		input_opts.title = query_input_opts.title or "ChatGPT Query"
+		if type(query_input_opts.border) == "string" then
+			input_opts.border = query_input_opts.border
+		end
+		if type(query_input_opts.width) == "number" then
+			input_opts.width = query_input_opts.width
+		end
+		if type(query_input_opts.height) == "number" then
+			input_opts.height = query_input_opts.height
+		end
+		if type(query_input_opts.prompt) == "string" and query_input_opts.prompt ~= "" then
+			input_opts.prompt = query_input_opts.prompt
+		end
+		if type(query_input_opts.preset) == "string" and query_input_opts.preset ~= "" then
+			input_opts.preset = query_input_opts.preset
 		end
 
-		input_open({}, on_submit)
+		local function build_template(query_template)
+			local base = select_default_template()
+			if base then
+				base = vim.deepcopy(base)
+			else
+				base = {}
+			end
+
+			local overrides = query_input_opts.template
+			if type(overrides) == "table" then
+				local function apply_field(field, ...)
+					local value
+					for i = 1, select("#", ...) do
+						local key = select(i, ...)
+						if overrides[key] ~= nil then
+							value = overrides[key]
+							break
+						end
+					end
+					if value ~= nil then
+						base[field] = value
+					end
+				end
+
+				apply_field("label", "label")
+				apply_field("id", "id")
+				apply_field("url", "url")
+				apply_field("model", "model")
+				apply_field("hintsSearch", "hintsSearch", "hints_search")
+				apply_field("temporaryChat", "temporaryChat", "temporary_chat")
+			end
+
+			base.queryTemplate = query_template
+			return base
+		end
+
+		local function on_submit(query)
+			if query == nil then
+				return
+			end
+
+			local query_text = trim_text(query)
+			if query_text == "" then
+				vim.notify("chatgpt-search-templater: search query is empty.", vim.log.levels.WARN)
+				return
+			end
+
+			local append_selection = query_input_opts.append_selection
+			if append_selection == nil then
+				append_selection = true
+			end
+
+			local final_template = query_text
+			if append_selection and not final_template:find("{TEXT}", 1, true) then
+				local separator = query_input_opts.separator
+				if type(separator) ~= "string" then
+					separator = "\n\n"
+				end
+				final_template = final_template .. separator .. "{TEXT}"
+			end
+
+			local template = build_template(final_template)
+			local placeholder_text = cleaned
+			if placeholder_text == "" and type(query_input_opts.fallback_text) == "string" then
+				placeholder_text = query_input_opts.fallback_text
+			end
+			placeholder_text = placeholder_text or ""
+
+			open_template_for_text(template, placeholder_text)
+		end
+
+		input_open(input_opts, on_submit)
 	end
 
 	if type(visual_key) == "string" and visual_key ~= "" then

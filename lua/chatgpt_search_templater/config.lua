@@ -9,6 +9,24 @@ local defaults = {
 		default_visual = "<leader>cG",
 		query_input = "<leader>cq",
 	},
+	query_input = {
+		title = "ChatGPT Query",
+		border = "rounded",
+		width = nil,
+		height = nil,
+		prompt = nil,
+		preset = nil,
+		append_selection = true,
+		separator = "\n\n",
+		fallback_text = "",
+		template = {
+			label = "Ad-hoc Query",
+			url = nil,
+			model = nil,
+			hintsSearch = nil,
+			temporaryChat = nil,
+		},
+	},
 }
 
 local options = vim.deepcopy(defaults)
