@@ -73,7 +73,37 @@ require("chatgpt_search_templater").setup({
 })
 ```
 
-## 5. `setup()` の戻り値を活用する
+## 5. インタラクティブ入力ウィンドウ
+
+`query_input` オプションを設定すると、ビジュアル選択と併用できるフローティング入力ウィンドウを調整できます。入力内容と `{TEXT}` を組み合わせ、起動ごとに一時テンプレートを生成します。
+
+```lua
+require("chatgpt_search_templater").setup({
+  query_input = {
+    title = "ChatGPT Query",
+    border = "rounded",
+    width = 80,
+    height = 16,
+    prompt = "必要内容を記述してください",
+    preset = "Please help with:\n",
+    append_selection = true,
+    separator = "\n\n",
+    fallback_text = "TODO:",
+    template = {
+      url = "https://chatgpt.com/?q={TEXT}",
+      model = "gpt-5-thinking",
+      hintsSearch = true,
+      temporaryChat = false,
+    },
+  },
+})
+```
+
+- `append_selection` が `true` の場合、入力に `{TEXT}` が含まれていなければ `separator` で連結して追記します。
+- `fallback_text` はビジュアル選択が空だったときに `{TEXT}` として利用されます。
+- `template` に含めたキーは、この起動時に使用するテンプレート設定を上書きします。
+
+## 6. `setup()` の戻り値を活用する
 
 `setup()` はテンプレート仕様を含むテーブルを返します。周辺ツールで再利用したい場合に便利です。
 
@@ -85,7 +115,7 @@ print(vim.inspect(payload.default_templates)) -- 有効テンプレート一覧
 print(vim.inspect(payload.placeholders))      -- プレースホルダー一覧
 ```
 
-## 6. トラブルシューティング
+## 7. トラブルシューティング
 
 - **「search text is empty」と表示される**: ビジュアル選択が空になっていないか確認してください。空白のみの場合も弾かれます。
 - **テンプレートの順序が意図通りでない**: 優先したいテンプレートに `"default": true` を付与してください。複数ある場合は最初の `enabled = true` が使われます。

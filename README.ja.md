@@ -105,6 +105,36 @@ require("chatgpt_search_templater").setup({
 })
 ```
 
+### インタラクティブ入力ウィンドウ
+
+ビジュアル選択と組み合わせてフローティング入力ウィンドウからクエリを作成することもできます。`query_input` オプションでウィンドウの外観や `{TEXT}` の扱いを細かく制御できます。
+
+```lua
+require("chatgpt_search_templater").setup({
+  query_input = {
+    title = "ChatGPT Query",      -- ウィンドウタイトル
+    border = "rounded",           -- :h nvim_open_win の border に準拠
+    width = 80,
+    height = 16,
+    prompt = "必要内容を記述してください", -- 任意のヘッダー
+    preset = "Please help with:\n", -- 初期バッファ内容
+    append_selection = true,       -- 入力末尾に \n\n{TEXT} を付与
+    separator = "\n\n",           -- append_selection 時の区切り文字
+    fallback_text = "TODO:",       -- 選択が空のときに {TEXT} として使う値
+    template = {
+      url = "https://chatgpt.com/?q={TEXT}",
+      model = "gpt-5-thinking",
+      hintsSearch = true,
+      temporaryChat = false,
+    },
+  },
+})
+```
+
+- `append_selection` が `true`（既定値）のとき、入力に `{TEXT}` が含まれていなくても自動的に追記し、ビジュアル選択の内容を確実に送信します。
+- `fallback_text` は選択が空だった場合に `{TEXT}` に挿入されます。空文字にすると選択必須になります。
+- `query_input.template` に指定したフィールド（`label` / `model` / `hintsSearch` / `temporaryChat` / `url` など）が解決済みテンプレートを上書きします。
+
 ### 取得できる戻り値
 
 `setup()` は Chrome 拡張と同じ仕様のテンプレート情報を返します。必要に応じて他の UI に流用できます。

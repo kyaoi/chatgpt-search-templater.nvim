@@ -17,9 +17,18 @@ lua/plugins/utils/search-templater
 ```lua
 return {
   "kyaoi/chatgpt-search-templater.nvim",
+  branch = "develop",
+  version = false,
   config = function()
     require("chatgpt_search_templater").setup({
       spec_path = vim.fn.stdpath("config") .. "/lua/plugins/utils/search-templater/template.json",
+      query_input = {
+        template = {
+          model = "gpt-5-thinking",
+          hintsSearch = true,
+          temporaryChat = false,
+        },
+      },
     })
   end,
 }
