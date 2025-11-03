@@ -243,10 +243,8 @@ local function input_open()
 		return query
 	end
 
-	vim.keymap({ "n", "i" }, "<Esc>", vim.schedule(cancel), { buffer = input_buf, silent = true })
-	vim.keymap({ "n", "i" }, "<C-s>", function()
-		vim.schedule(submit)
-	end, { buffer = input_buf, silent = true })
+	vim.keymap({ "n", "i" }, "<Esc>", cancel, { buffer = input_buf, silent = true })
+	vim.keymap({ "n", "i" }, "<C-s>", submit, { buffer = input_buf, silent = true })
 
 	vim.cmd("startinsert")
 end
