@@ -187,22 +187,17 @@ local function format_template_label(template)
 end
 
 local function input_open()
-	local source_win = vim.api.nvim_get_current_win()
-	local input_buf = vim.api.nvim_create_buf(false, true)
+	local input_buf = vim.api.nvim_create_buf(false, true) -- scratch(nofile)
+	vim.bo[input_buf].bufhidden = "wipe"
+	vim.bo[input_buf].swapfile = false
+	vim.bo[input_buf].modifiable = true
+	vim.bo[input_buf].filetype = "chatgpt_query"
 
-	local columns = vim.o.columns
-	local lines = vim.o.lines
+	local columns, lines = vim.o.columns, vim.o.lines
 	local width = math.max(50, math.floor(columns * 0.6))
 	local height = math.max(6, math.floor(lines * 0.3))
-	local row = math.floor((lines - height) / 2 - 1)
-	local col = math.floor((columns - width) / 2)
-
-	if row < 0 then
-		row = 0
-	end
-	if col < 0 then
-		col = 0
-	end
+	local row = math.max(0, math.floor((lines - height) / 2 - 1))
+	local col = math.max(0, math.floor((columns - width) / 2))
 
 	local input_win = vim.api.nvim_open_win(input_buf, true, {
 		relative = "editor",
@@ -219,13 +214,13 @@ local function input_open()
 
 	if input_win == 0 then
 		vim.api.nvim_buf_delete(input_buf, { force = true })
-		vim.notify("chatgpt-search-templater: failed to open input window.", vim.log.levels.ERROR)
+		vim.notify("failed to open input window.", vim.log.levels.ERROR)
 		return
 	end
 
-	local function cancel()
-		if vim.api.nvim_win_is_valid(source_win) then
-			vim.api.nvim_win_close(source_win, true)
+	local function close_win()
+		if vim.api.nvim_win_is_valid(input_win) then
+			vim.api.nvim_win_close(input_win, true)
 		end
 		if vim.api.nvim_buf_is_valid(input_buf) then
 			vim.api.nvim_buf_delete(input_buf, { force = true })
@@ -234,17 +229,24 @@ local function input_open()
 
 	local function submit()
 		if not vim.api.nvim_buf_is_valid(input_buf) then
-			cancel()
+			close_win()
 			return
 		end
 		local lines = vim.api.nvim_buf_get_lines(input_buf, 0, -1, false)
 		local query = table.concat(lines, "\n")
-		cancel()
-		return query
+		vim.g.chatgpt_last_query = query -- グローバルに保存
+		pcall(vim.fn.setreg, '"', query) -- 無名レジスタにも入れるので p で貼れる
+		vim.notify(("Saved query (%d chars)"):format(#query), vim.log.levels.INFO)
+		close_win()
 	end
 
-	vim.keymap({ "n", "i" }, "<Esc>", cancel, { buffer = input_buf, silent = true })
-	vim.keymap({ "n", "i" }, "<C-s>", submit, { buffer = input_buf, silent = true })
+	local function cancel()
+		close_win()
+	end
+
+	-- キーマップ（:wは使わない）
+	vim.keymap.set({ "n", "i" }, "<Esc>", cancel, { buffer = input_buf, silent = true })
+	vim.keymap.set({ "n", "i" }, "<C-s>", submit, { buffer = input_buf, silent = true })
 
 	vim.cmd("startinsert")
 end
