@@ -43,4 +43,5 @@ return {
 	defaultTemplates = default_templates,
 	templates = vim.deepcopy(default_templates),
 	custom_query_template = custom_query_template,
+	customQueryTemplate = vim.deepcopy(custom_query_template),
 }

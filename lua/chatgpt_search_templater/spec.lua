@@ -58,6 +58,12 @@ local function normalize_spec(data)
 		normalized.defaultTemplates = copy_templates(normalized.templates)
 	end
 
+	if normalized.customQueryTemplate == nil and type(normalized.custom_query_template) == "table" then
+		normalized.customQueryTemplate = vim.deepcopy(normalized.custom_query_template)
+	elseif normalized.custom_query_template == nil and type(normalized.customQueryTemplate) == "table" then
+		normalized.custom_query_template = vim.deepcopy(normalized.customQueryTemplate)
+	end
+
 	if normalized.defaultHardLimit == nil and normalized.hardLimit ~= nil then
 		normalized.defaultHardLimit = normalized.hardLimit
 	elseif normalized.hardLimit == nil and normalized.defaultHardLimit ~= nil then
@@ -142,7 +148,7 @@ end
 ---@return table
 function M.custom_template()
 	local spec = M.load()
-	return clone(spec.customQueryTemplate or {})
+	return clone(spec.customQueryTemplate or spec.custom_query_template or {})
 end
 
 ---@return table

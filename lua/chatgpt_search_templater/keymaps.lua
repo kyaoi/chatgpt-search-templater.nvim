@@ -1,3 +1,9 @@
+local utils = require("chatgpt_search_templater.utils")
+local selection = require("chatgpt_search_templater.selection")
+local templates = require("chatgpt_search_templater.templates")
+local query_input = require("chatgpt_search_templater.query_input")
+local browser = require("chatgpt_search_templater.browser")
+
 local M = {}
 
 local applied = {}
@@ -9,402 +15,180 @@ local function clear_applied()
 	applied = {}
 end
 
-local function url_encode(text)
-	text = (text or "")
-		:gsub("\r\n", "\n")
-		:gsub("\r", "\n")
-		:gsub("([^%w%-_%.~ ])", function(char)
-			return string.format("%%%02X", char:byte())
-		end)
-		:gsub(" ", "%%20")
-
-	return text
+local function notify(level, message)
+	vim.notify("chatgpt-search-templater: " .. message, level)
 end
 
-local function trim_text(text)
-	local normalized = text or ""
-	normalized = normalized:gsub("^%s+", "")
-	normalized = normalized:gsub("%s+$", "")
-	return normalized
+local function warn(message)
+	notify(vim.log.levels.WARN, message)
 end
 
-local function collect_visual_selection()
-	local bufnr = vim.api.nvim_get_current_buf()
-	local mode = vim.fn.mode(1)
-	local visual_mode = ""
-	if mode:match("[vV\022]") then
-		visual_mode = mode
-	else
-		local ok, last_mode = pcall(vim.fn.visualmode)
-		if ok then
-			visual_mode = last_mode or ""
-		end
-	end
-
-	local start_pos = vim.fn.getpos("'<")
-	local end_pos = vim.fn.getpos("'>")
-
-	if start_pos[2] <= 0 or end_pos[2] <= 0 then
-		local visual_start = vim.fn.getpos("v")
-		local cursor_position = vim.api.nvim_win_get_cursor(0)
-		if visual_start[2] > 0 then
-			start_pos = { 0, visual_start[2], visual_start[3], 0 }
-			end_pos = { 0, cursor_position[1], cursor_position[2] + 1, 0 }
-		end
-	end
-
-	local start_row = start_pos[2]
-	local start_col = start_pos[3]
-	local end_row = end_pos[2]
-	local end_col = end_pos[3]
-
-	if start_row <= 0 or end_row <= 0 then
-		return ""
-	end
-
-	if start_row > end_row or (start_row == end_row and start_col > end_col) then
-		start_row, end_row = end_row, start_row
-		start_col, end_col = end_col, start_col
-	end
-
-	local linewise = visual_mode == "V"
-
-	start_row = start_row - 1
-	start_col = math.max(start_col - 1, 0)
-	end_row = end_row - 1
-
-	local end_line = vim.api.nvim_buf_get_lines(bufnr, end_row, end_row + 1, false)[1] or ""
-	local end_col_exclusive = end_col
-	if linewise then
-		start_col = 0
-		end_col_exclusive = #end_line
-	elseif end_col_exclusive > #end_line then
-		end_col_exclusive = #end_line
-	end
-
-	local lines = vim.api.nvim_buf_get_text(bufnr, start_row, start_col, end_row, end_col_exclusive, {})
-	return table.concat(lines, "\n")
-end
-
-local function replace_placeholders(template, value, placeholders)
-	if not template or template == "" then
-		return template
-	end
-
-	local result = template
-	if type(placeholders) == "table" then
-		for _, placeholder in ipairs(placeholders) do
-			result = result:gsub(vim.pesc(placeholder), function()
-				return value
-			end)
-		end
-	end
-	result = result:gsub("{TEXT}", function()
-		return value
-	end)
-	return result
-end
-
-local function template_is_default(template)
-	if type(template) ~= "table" then
-		return false
-	end
-
-	if template.default == true then
-		return true
-	end
-
-	if template.isDefault == true then
-		return true
-	end
-
-	return false
-end
-
-local function resolve_query_template(spec_payload, template)
-	if type(template) == "table" then
-		local candidate = template.queryTemplate
-		if type(candidate) == "string" and candidate ~= "" then
-			return candidate
-		end
-	end
-
-	if spec_payload then
-		local fallback = spec_payload.defaultQueryTemplate
-		if type(fallback) == "string" and fallback ~= "" then
-			return fallback
-		end
-	end
-
-	return "{TEXT}"
-end
-
-local function render_query_text(spec_payload, template, text)
-	local query_template = resolve_query_template(spec_payload, template)
-	local placeholders = spec_payload and spec_payload.placeholders or {}
-	return replace_placeholders(query_template, text, placeholders)
-end
-
-local function find_default_template(spec_payload)
-	local list = spec_payload.defaultTemplates or spec_payload.templates or {}
-	local default_candidate
-	local first_enabled
-	for _, template in ipairs(list) do
-		if type(template) == "table" then
-			local is_enabled = template.enabled == nil or template.enabled == true
-			if template_is_default(template) then
-				if is_enabled then
-					return template
-				end
-				default_candidate = default_candidate or template
-			end
-			if is_enabled and not first_enabled then
-				first_enabled = template
-			end
-		end
-	end
-	return first_enabled or default_candidate or list[1]
-end
-
-local function build_url(spec_payload, encoded_text, template_override)
-	local template = template_override or find_default_template(spec_payload) or {}
-	local placeholders = spec_payload.placeholders or {}
-
-	local url_template = template.url or spec_payload.defaultTemplateUrl
-	if not url_template or url_template == "" then
-		return nil
-	end
-
-	local function set_query_param(url, name, value)
-		if not value or value == "" then
-			return url
-		end
-		local encoded_value = url_encode(tostring(value))
-		local escaped = vim.pesc(name)
-		local updated, count = url:gsub("([%?&])" .. escaped .. "=[^&]*", function(prefix)
-			return prefix .. name .. "=" .. encoded_value
-		end, 1)
-		if count == 0 then
-			local separator = url:find("?", 1, true) and "&" or "?"
-			updated = url .. separator .. name .. "=" .. encoded_value
-		end
-		return updated
-	end
-
-	local function normalize_hints(value)
-		if value == nil then
-			return nil
-		end
-		if type(value) == "boolean" then
-			return value and "search" or nil
-		end
-		if type(value) == "string" then
-			local trimmed = trim_text(value)
-			if trimmed ~= "" then
-				return trimmed
-			end
-		end
-		return nil
-	end
-
-	local function normalize_bool_param(value)
-		if value == nil then
-			return nil
-		end
-		if type(value) == "boolean" then
-			return value and "true" or nil
-		end
-		if type(value) == "string" then
-			local trimmed = trim_text(value)
-			if trimmed ~= "" then
-				return trimmed
-			end
-		end
-		return nil
-	end
-
-	local url = replace_placeholders(url_template, encoded_text, placeholders)
-
-	local model = template.model
-	if type(model) == "string" then
-		model = trim_text(model)
-	end
-	local hints_value = normalize_hints(template.hintsSearch)
-	local temporary_chat_value = normalize_bool_param(template.temporaryChat)
-
-	if model and model ~= "" then
-		url = set_query_param(url, "model", model)
-	end
-	if hints_value then
-		url = set_query_param(url, "hints", hints_value)
-	end
-	if temporary_chat_value then
-		url = set_query_param(url, "temporary-chat", temporary_chat_value)
-	end
-
-	return url
+local function err(message)
+	notify(vim.log.levels.ERROR, message)
 end
 
 local function format_template_label(template)
 	if type(template) ~= "table" then
 		return ""
 	end
-
 	return template.label or template.id or template.url or "<unnamed template>"
 end
 
---- @param opts table|nil
---- @param on_submit function
-local function input_open(opts, on_submit)
-	opts = opts or {}
-	assert(type(on_submit) == "function", "on_submit callback is required")
+local function select_default_template(payload)
+	return templates.select_default(payload.spec, payload.default_templates)
+end
 
-	local buf = vim.api.nvim_create_buf(false, true) -- scratch (nofile)
-	vim.bo[buf].bufhidden = "wipe"
-	vim.bo[buf].swapfile = false
-	vim.bo[buf].modifiable = true
-	vim.bo[buf].filetype = opts.filetype or "biginput"
-
-	local columns, lines = vim.o.columns, vim.o.lines
-	local width = opts.width or math.max(60, math.floor(columns * 0.6))
-	local height = opts.height or math.max(10, math.floor(lines * 0.3))
-	local row = math.max(0, math.floor((lines - height) / 2 - 1))
-	local col = math.max(0, math.floor((columns - width) / 2))
-
-	local win = vim.api.nvim_open_win(buf, true, {
-		relative = "editor",
-		style = "minimal",
-		border = opts.border or "rounded",
-		title = opts.title or "Input",
-		title_pos = "center",
-		width = width,
-		height = height,
-		row = row,
-		col = col,
-		zindex = 200,
-	})
-	if win == 0 then
-		vim.api.nvim_buf_delete(buf, { force = true })
-		vim.notify("biginput: failed to open window", vim.log.levels.ERROR)
+local function open_template(payload, template, text)
+	if type(template) ~= "table" then
+		warn("no template resolved for the action.")
 		return
 	end
 
-	-- 初期表示（任意）
-	local lines_init = {}
-	if opts.prompt and #opts.prompt > 0 then
-		table.insert(lines_init, opts.prompt)
-		table.insert(lines_init, "")
+	local rendered_query = templates.render_query(payload.spec, template, text)
+	local trimmed_query = utils.trim(rendered_query)
+	if trimmed_query == "" then
+		warn("resolved query is empty.")
+		return
 	end
-	if opts.preset and #opts.preset > 0 then
-		for s in tostring(opts.preset):gmatch("([^\n]*)\n?") do
-			if s ~= "" or #lines_init > 0 then
-				table.insert(lines_init, s)
+
+	local url, build_err = templates.build_url(payload.spec, template, trimmed_query)
+	if not url then
+		err(build_err and ("failed to build URL (" .. build_err .. ").") or "failed to resolve a URL template.")
+		return
+	end
+
+	browser.open(url)
+end
+
+local function open_default_with_text(payload, text)
+	local cleaned = utils.trim(text)
+	if cleaned == "" then
+		warn("search text is empty.")
+		return
+	end
+
+	local template = select_default_template(payload)
+	if not template then
+		warn("no default template available.")
+		return
+	end
+
+	open_template(payload, template, cleaned)
+end
+
+local function open_with_text(payload, text)
+	local cleaned = utils.trim(text)
+	if cleaned == "" then
+		warn("search text is empty.")
+		return
+	end
+
+	local enabled_templates = templates.collect_enabled(payload.default_templates)
+	if #enabled_templates == 0 then
+		open_template(payload, select_default_template(payload), cleaned)
+		return
+	end
+
+	if #enabled_templates == 1 then
+		open_template(payload, enabled_templates[1], cleaned)
+		return
+	end
+
+	vim.ui.select(enabled_templates, {
+		prompt = "Select ChatGPT template",
+		format_item = format_template_label,
+	}, function(choice)
+		if choice then
+			open_template(payload, choice, cleaned)
+		end
+	end)
+end
+
+local function build_input_template(base_template, overrides, query_template)
+	local template = base_template and vim.deepcopy(base_template) or {}
+	template.queryTemplate = query_template
+
+	if type(overrides) ~= "table" then
+		return template
+	end
+
+	local field_aliases = {
+		label = { "label" },
+		id = { "id" },
+		url = { "url" },
+		model = { "model" },
+		hintsSearch = { "hintsSearch", "hints_search" },
+		temporaryChat = { "temporaryChat", "temporary_chat" },
+	}
+
+	for field, keys in pairs(field_aliases) do
+		for _, key in ipairs(keys) do
+			if overrides[key] ~= nil then
+				template[field] = overrides[key]
+				break
 			end
 		end
 	end
-	if #lines_init > 0 then
-		vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines_init)
+
+	return template
+end
+
+local function open_with_input(options, payload, text)
+	local cleaned = utils.trim(text)
+	local query_input_opts = options.query_input or {}
+
+	local input_opts = {
+		title = query_input_opts.title or "ChatGPT Query",
+	}
+	if type(query_input_opts.border) == "string" then
+		input_opts.border = query_input_opts.border
+	end
+	if type(query_input_opts.width) == "number" then
+		input_opts.width = query_input_opts.width
+	end
+	if type(query_input_opts.height) == "number" then
+		input_opts.height = query_input_opts.height
+	end
+	if type(query_input_opts.prompt) == "string" and query_input_opts.prompt ~= "" then
+		input_opts.prompt = query_input_opts.prompt
+	end
+	if type(query_input_opts.preset) == "string" and query_input_opts.preset ~= "" then
+		input_opts.preset = query_input_opts.preset
 	end
 
-	-- ダブル発火防止
-	local fired = false
-	local function finish(text) -- text=nil でキャンセル
-		if fired then
+	query_input.open(input_opts, function(query)
+		if query == nil then
 			return
 		end
-		fired = true
-		pcall(vim.cmd, "stopinsert")
-		local function close()
-			if vim.api.nvim_win_is_valid(win) then
-				vim.api.nvim_win_close(win, true)
-			end
-			if vim.api.nvim_buf_is_valid(buf) then
-				vim.api.nvim_buf_delete(buf, { force = true })
-			end
+
+		local query_text = utils.trim(query)
+		if query_text == "" then
+			warn("search query is empty.")
+			return
 		end
-		close()
-		-- ウィンドウを閉じてから実行（UIと競合しないように）
-		vim.schedule(function()
-			on_submit(text)
-		end)
-	end
 
-	local function submit()
-		if not vim.api.nvim_buf_is_valid(buf) then
-			return finish(nil)
+		local append_selection = query_input_opts.append_selection
+		if append_selection == nil then
+			append_selection = true
 		end
-		local lines_content = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-		-- 先頭に prompt を表示していたら除く
-		if opts.prompt and #lines_content > 0 and lines_content[1] == opts.prompt then
-			table.remove(lines_content, 1)
-			if #lines_content > 0 and lines_content[1] == "" then
-				table.remove(lines_content, 1)
-			end
+
+		local final_template = query_text
+		if append_selection and not final_template:find("{TEXT}", 1, true) then
+			local separator = type(query_input_opts.separator) == "string" and query_input_opts.separator or "\n\n"
+			final_template = final_template .. separator .. "{TEXT}"
 		end
-		finish(table.concat(lines_content, "\n"))
-	end
 
-	local function cancel()
-		finish(nil)
-	end
+		local overrides = type(query_input_opts.template) == "table" and query_input_opts.template or nil
+		local template = build_input_template(select_default_template(payload), overrides, final_template)
 
-	-- キーマップ（:w は使わない）
-	vim.keymap.set({ "n", "i" }, "<C-s>", submit, { buffer = buf, silent = true })
-	vim.keymap.set({ "n", "i" }, "<Esc>", cancel, { buffer = buf, silent = true })
-	vim.keymap.set("n", "q", cancel, { buffer = buf, silent = true })
-
-	-- カーソル位置
-	local start_row = (#lines_init > 0) and #lines_init or 1
-	vim.api.nvim_win_set_cursor(win, { start_row, 0 })
-	vim.cmd("startinsert")
-end
-
-local function collect_enabled_templates(default_templates)
-	local defaults, others = {}, {}
-	if type(default_templates) == "table" then
-		for _, template in ipairs(default_templates) do
-			if type(template) == "table" then
-				if template.enabled == nil or template.enabled == true then
-					if template_is_default(template) then
-						table.insert(defaults, template)
-					else
-						table.insert(others, template)
-					end
-				end
-			end
+		local placeholder_text = cleaned
+		if utils.is_empty(placeholder_text) and type(query_input_opts.fallback_text) == "string" then
+			placeholder_text = query_input_opts.fallback_text
 		end
-	end
+		placeholder_text = placeholder_text or ""
 
-	for _, template in ipairs(others) do
-		table.insert(defaults, template)
-	end
-
-	return defaults
-end
-
-local function open_url(url)
-	local command
-	if vim.fn.has("macunix") == 1 then
-		command = { "open", url }
-	elseif vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1 then
-		command = { "cmd.exe", "/c", "start", "", url }
-	elseif vim.fn.has("wsl") == 1 then
-		if vim.fn.executable("wslview") == 1 then
-			command = { "wslview", url }
-		else
-			command = { "cmd.exe", "/c", "start", "", url }
-		end
-	else
-		command = { "xdg-open", url }
-	end
-
-	local job = vim.fn.jobstart(command, { detach = true })
-	if job <= 0 then
-		vim.notify(
-			"chatgpt-search-templater: failed to open the browser. Please confirm that xdg-open (or an equivalent command) is available.",
-			vim.log.levels.ERROR
-		)
-	end
+		open_template(payload, template, placeholder_text)
+	end)
 end
 
 local function apply_mapping(mode, lhs, callback, desc, force)
@@ -412,18 +196,12 @@ local function apply_mapping(mode, lhs, callback, desc, force)
 		return
 	end
 	if not force and vim.fn.mapcheck(lhs, mode) ~= "" then
-		vim.notify(
-			("chatgpt-search-templater: skipped default keymap %s in %s-mode because it is already defined."):format(
-				lhs,
-				mode
-			),
-			vim.log.levels.WARN
-		)
+		warn(("skipped default keymap %s in %s-mode because it is already defined."):format(lhs, mode))
 		return
 	end
 
 	vim.keymap.set(mode, lhs, callback, { desc = desc, silent = true })
-	table.insert(applied, { mode = mode, lhs = lhs })
+	applied[#applied + 1] = { mode = mode, lhs = lhs }
 end
 
 ---@param options table
@@ -435,198 +213,27 @@ function M.apply(options, payload)
 		return
 	end
 
-	local keymaps = options.keymaps or {}
-	local visual_key = keymaps.visual
-	local default_visual_key = keymaps.default_visual
-	local query_input_key = keymaps.query_input
-	local force = keymaps.force == true
-
-	local function open_template_for_text(template, raw_text)
-		if type(template) ~= "table" then
-			vim.notify("chatgpt-search-templater: no template resolved for the action.", vim.log.levels.WARN)
-			return
-		end
-
-		local rendered_query = render_query_text(payload.spec, template, raw_text)
-		local trimmed_query = trim_text(rendered_query)
-		if trimmed_query == "" then
-			vim.notify("chatgpt-search-templater: resolved query is empty.", vim.log.levels.WARN)
-			return
-		end
-
-		local encoded_query = url_encode(trimmed_query)
-		local url = build_url(payload.spec, encoded_query, template)
-		if not url then
-			vim.notify("chatgpt-search-templater: failed to resolve a URL template.", vim.log.levels.ERROR)
-			return
-		end
-		open_url(url)
-	end
-
-	local function select_default_template()
-		local enabled = collect_enabled_templates(payload.default_templates)
-		if #enabled > 0 then
-			return enabled[1]
-		end
-		return find_default_template(payload.spec)
-	end
-
-	local function open_default_with_text(text)
-		local cleaned = trim_text(text)
-		if cleaned == "" then
-			vim.notify("chatgpt-search-templater: search text is empty.", vim.log.levels.WARN)
-			return
-		end
-
-		local template = select_default_template()
-		if not template then
-			vim.notify("chatgpt-search-templater: no default template available.", vim.log.levels.WARN)
-			return
-		end
-
-		open_template_for_text(template, cleaned)
-	end
-
-	local function open_with_text(text)
-		local cleaned = trim_text(text)
-		if cleaned == "" then
-			vim.notify("chatgpt-search-templater: search text is empty.", vim.log.levels.WARN)
-			return
-		end
-		local enabled_templates = collect_enabled_templates(payload.default_templates)
-
-		if #enabled_templates == 0 then
-			open_template_for_text(select_default_template(), cleaned)
-			return
-		end
-
-		if #enabled_templates == 1 then
-			open_template_for_text(enabled_templates[1], cleaned)
-			return
-		end
-
-		vim.ui.select(enabled_templates, {
-			prompt = "Select ChatGPT template",
-			format_item = format_template_label,
-		}, function(choice)
-			if not choice then
-				return
-			end
-			open_template_for_text(choice, cleaned)
-		end)
-	end
-
-	local function open_with_input(text)
-		local cleaned = trim_text(text)
-		local query_input_opts = options.query_input or {}
-
-		local input_opts = {}
-		input_opts.title = query_input_opts.title or "ChatGPT Query"
-		if type(query_input_opts.border) == "string" then
-			input_opts.border = query_input_opts.border
-		end
-		if type(query_input_opts.width) == "number" then
-			input_opts.width = query_input_opts.width
-		end
-		if type(query_input_opts.height) == "number" then
-			input_opts.height = query_input_opts.height
-		end
-		if type(query_input_opts.prompt) == "string" and query_input_opts.prompt ~= "" then
-			input_opts.prompt = query_input_opts.prompt
-		end
-		if type(query_input_opts.preset) == "string" and query_input_opts.preset ~= "" then
-			input_opts.preset = query_input_opts.preset
-		end
-
-		local function build_template(query_template)
-			local base = select_default_template()
-			if base then
-				base = vim.deepcopy(base)
-			else
-				base = {}
-			end
-
-			local overrides = query_input_opts.template
-			if type(overrides) == "table" then
-				local function apply_field(field, ...)
-					local value
-					for i = 1, select("#", ...) do
-						local key = select(i, ...)
-						if overrides[key] ~= nil then
-							value = overrides[key]
-							break
-						end
-					end
-					if value ~= nil then
-						base[field] = value
-					end
-				end
-
-				apply_field("label", "label")
-				apply_field("id", "id")
-				apply_field("url", "url")
-				apply_field("model", "model")
-				apply_field("hintsSearch", "hintsSearch", "hints_search")
-				apply_field("temporaryChat", "temporaryChat", "temporary_chat")
-			end
-
-			base.queryTemplate = query_template
-			return base
-		end
-
-		local function on_submit(query)
-			if query == nil then
-				return
-			end
-
-			local query_text = trim_text(query)
-			if query_text == "" then
-				vim.notify("chatgpt-search-templater: search query is empty.", vim.log.levels.WARN)
-				return
-			end
-
-			local append_selection = query_input_opts.append_selection
-			if append_selection == nil then
-				append_selection = true
-			end
-
-			local final_template = query_text
-			if append_selection and not final_template:find("{TEXT}", 1, true) then
-				local separator = query_input_opts.separator
-				if type(separator) ~= "string" then
-					separator = "\n\n"
-				end
-				final_template = final_template .. separator .. "{TEXT}"
-			end
-
-			local template = build_template(final_template)
-			local placeholder_text = cleaned
-			if placeholder_text == "" and type(query_input_opts.fallback_text) == "string" then
-				placeholder_text = query_input_opts.fallback_text
-			end
-			placeholder_text = placeholder_text or ""
-
-			open_template_for_text(template, placeholder_text)
-		end
-
-		input_open(input_opts, on_submit)
-	end
+	local keymap_opts = options.keymaps or {}
+	local visual_key = keymap_opts.visual
+	local default_visual_key = keymap_opts.default_visual
+	local query_input_key = keymap_opts.query_input
+	local force = keymap_opts.force == true
 
 	if type(visual_key) == "string" and visual_key ~= "" then
 		apply_mapping("x", visual_key, function()
-			open_with_text(collect_visual_selection())
+			open_with_text(payload, selection.current_visual_text())
 		end, "ChatGPT search (visual selection)", force)
 	end
 
 	if type(default_visual_key) == "string" and default_visual_key ~= "" then
 		apply_mapping("x", default_visual_key, function()
-			open_default_with_text(collect_visual_selection())
+			open_default_with_text(payload, selection.current_visual_text())
 		end, "ChatGPT search (default template, visual selection)", force)
 	end
 
 	if type(query_input_key) == "string" and query_input_key ~= "" then
 		apply_mapping("x", query_input_key, function()
-			open_with_input(collect_visual_selection())
+			open_with_input(options, payload, selection.current_visual_text())
 		end, "ChatGPT search (input query)", force)
 	end
 end
