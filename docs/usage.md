@@ -87,7 +87,40 @@ require("chatgpt_search_templater").setup({
 })
 ```
 
-## 5. Consuming the Returned Payload
+## 5. Interactive Query Input
+
+`query_input` tweaks the floating window used when you trigger the dedicated
+mapping. It combines the current visual selection with additional text and
+produces a one-off template on the fly.
+
+```lua
+require("chatgpt_search_templater").setup({
+  query_input = {
+    title = "ChatGPT Query",
+    border = "rounded",
+    width = 80,
+    height = 16,
+    prompt = "Describe what you need",
+    preset = "Please help with:\n",
+    append_selection = true,
+    separator = "\n\n",
+    fallback_text = "TODO:",
+    template = {
+      url = "https://chatgpt.com/?q={TEXT}",
+      model = "gpt-5-thinking",
+      hintsSearch = true,
+      temporaryChat = false,
+    },
+  },
+})
+```
+
+- `append_selection` appends `{TEXT}` (with `separator`) when your input does
+  not already contain it. This keeps the selection attached to the query.
+- `fallback_text` supplies `{TEXT}` when the selection is empty.
+- Keys inside `template` override the resolved template for this launch only.
+
+## 6. Consuming the Returned Payload
 
 `setup()` returns a table with useful data:
 
@@ -107,7 +140,7 @@ print(vim.inspect(payload.placeholders))
 This is handy when building custom pickers, status lines, or linting logic that
 understands the shared template schema.
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
 - **“search text is empty”**: ensure you have an active visual selection. The
   plugin trims whitespace and refuses to continue with empty input.

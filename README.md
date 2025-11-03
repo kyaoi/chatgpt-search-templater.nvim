@@ -119,6 +119,41 @@ require("chatgpt_search_templater").setup({
 })
 ```
 
+### Interactive Query Input
+
+The visual selection can be combined with a floating text box for ad-hoc
+queries. Configure the `query_input` table to tweak the UI and how the provided
+text interacts with the current selection:
+
+```lua
+require("chatgpt_search_templater").setup({
+  query_input = {
+    title = "ChatGPT Query", -- window title
+    border = "rounded",       -- any :h nvim_open_win border
+    width = 80,
+    height = 16,
+    prompt = "Describe what you need", -- optional banner
+    preset = "Please help with:\n",    -- initial buffer contents
+    append_selection = true,  -- append \n\n{TEXT} when missing
+    separator = "\n\n",      -- used when append_selection = true
+    fallback_text = "TODO:",  -- used when the selection is empty
+    template = {
+      url = "https://chatgpt.com/?q={TEXT}",
+      model = "gpt-5-thinking",
+      hintsSearch = true,
+      temporaryChat = false,
+    },
+  },
+})
+```
+
+- When `append_selection` is `true` (the default), the plugin automatically
+  adds `{TEXT}` to your input so the selection still reaches ChatGPT.
+- `fallback_text` fills `{TEXT}` when the visual selection is empty. Leave it
+  blank to require a selection.
+- Fields under `query_input.template` override the resolved template (label,
+  `model`, `hintsSearch`, `temporaryChat`, and `url`).
+
 ### Accessing the Spec Programmatically
 
 `setup()` returns a payload containing the resolved specification along with

@@ -9,6 +9,24 @@ local defaults = {
 		default_visual = "<leader>cG",
 		query_input = "<leader>cq",
 	},
+	query_input = {
+		title = "ChatGPT Query",
+		border = "rounded",
+		width = nil,
+		height = nil,
+		prompt = nil,
+		preset = nil,
+		append_selection = true,
+		separator = "\n\n",
+		fallback_text = "",
+		template = {
+			label = "カスタムクエリ入力",
+			url = "https://chatgpt.com/?q={TEXT}",
+			model = "gpt-5",
+			hintsSearch = false,
+			temporaryChat = false,
+		},
+	},
 }
 
 local options = vim.deepcopy(defaults)
