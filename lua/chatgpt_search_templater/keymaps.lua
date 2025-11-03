@@ -187,6 +187,7 @@ local function format_template_label(template)
 end
 
 local function input_open()
+	local source_win = vim.api.nvim_get_current_win()
 	local input_buf = vim.api.nvim_create_buf(false, true)
 
 	local columns = vim.o.columns
@@ -223,8 +224,8 @@ local function input_open()
 	end
 
 	local function cancel()
-		if vim.api.nvim_win_is_valid(input_win) then
-			vim.api.nvim_win_close(input_win, true)
+		if vim.api.nvim_win_is_valid(source_win) then
+			vim.api.nvim_win_close(source_win, true)
 		end
 		if vim.api.nvim_buf_is_valid(input_buf) then
 			vim.api.nvim_buf_delete(input_buf, { force = true })
