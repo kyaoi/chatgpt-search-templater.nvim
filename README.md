@@ -73,7 +73,7 @@ strings are replaced consistently.
     {
       "id": "template-1",
       "label": "学習サポート",
-      "url": "https://chatgpt.com/?q={TEXT}",
+      "url": "https://chatgpt.com/?prompt={TEXT}",
       "queryTemplate": "この内容を初学者向けに解説してください。\n\n{TEXT}",
       "default": true,
       "enabled": true
@@ -81,7 +81,7 @@ strings are replaced consistently.
     {
       "id": "template-2",
       "label": "日本語翻訳",
-      "url": "https://chatgpt.com/?q={TEXT}",
+      "url": "https://chatgpt.com/?prompt={TEXT}",
       "queryTemplate": "以下の文章を日本語訳してください。\n\n{TEXT}",
       "enabled": true
     }
@@ -138,7 +138,7 @@ require("chatgpt_search_templater").setup({
     separator = "\n\n",      -- used when append_selection = true
     fallback_text = "TODO:",  -- used when the selection is empty
     template = {
-      url = "https://chatgpt.com/?q={TEXT}",
+      url = "https://chatgpt.com/?prompt={TEXT}",
       model = "gpt-5-thinking",
       hintsSearch = true,
       temporaryChat = false,

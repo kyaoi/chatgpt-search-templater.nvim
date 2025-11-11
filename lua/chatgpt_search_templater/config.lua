@@ -21,7 +21,7 @@ local defaults = {
 		fallback_text = "",
 		template = {
 			label = "カスタムクエリ入力",
-			url = "https://chatgpt.com/?q={TEXT}",
+			url = "https://chatgpt.com/?prompt={TEXT}",
 			model = "gpt-5",
 			hintsSearch = false,
 			temporaryChat = false,

@@ -48,7 +48,7 @@ require("chatgpt_search_templater").setup({
       {
         id = "default",
         label = "Quick lookup",
-        url = "https://chatgpt.com/?q={TEXT}",
+        url = "https://chatgpt.com/?prompt={TEXT}",
         queryTemplate = "Summarise:\n\n{TEXT}",
         default = true,
         enabled = true,
@@ -106,7 +106,7 @@ require("chatgpt_search_templater").setup({
     separator = "\n\n",
     fallback_text = "TODO:",
     template = {
-      url = "https://chatgpt.com/?q={TEXT}",
+      url = "https://chatgpt.com/?prompt={TEXT}",
       model = "gpt-5-thinking",
       hintsSearch = true,
       temporaryChat = false,

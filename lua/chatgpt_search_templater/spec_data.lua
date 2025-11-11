@@ -2,7 +2,7 @@ local default_templates = {
 	{
 		id = "template-1",
 		label = "標準検索",
-		url = "https://chatgpt.com/?q={TEXT}",
+		url = "https://chatgpt.com/?prompt={TEXT}",
 		queryTemplate = "{TEXT}",
 		enabled = true,
 		hintsSearch = false,
@@ -12,7 +12,7 @@ local default_templates = {
 	{
 		id = "template-2",
 		label = "Search + Temporary",
-		url = "https://chatgpt.com/?q={TEXT}",
+		url = "https://chatgpt.com/?prompt={TEXT}",
 		queryTemplate = "{TEXT}",
 		enabled = false,
 		hintsSearch = true,
@@ -23,7 +23,7 @@ local default_templates = {
 
 local custom_query_template = {
 	label = "カスタムクエリ入力",
-	url = "https://chatgpt.com/?q={TEXT}",
+	url = "https://chatgpt.com/?prompt={TEXT}",
 	queryTemplate = "{TEXT}",
 	enabled = true,
 	hintsSearch = true,
@@ -33,7 +33,7 @@ local custom_query_template = {
 
 return {
 	placeholders = { "{選択した文字列}", "{TEXT}" },
-	defaultTemplateUrl = "https://chatgpt.com/?q={TEXT}",
+	defaultTemplateUrl = "https://chatgpt.com/?prompt={TEXT}",
 	defaultQueryTemplate = "{TEXT}",
 	templateModelOptions = { "gpt-4o", "o3", "gpt-5", "gpt-5-thinking", "custom" },
 	defaultHardLimit = 3000,

@@ -40,7 +40,7 @@ require("chatgpt_search_templater").setup({
       {
         id = "default",
         label = "クイック検索",
-        url = "https://chatgpt.com/?q={TEXT}",
+        url = "https://chatgpt.com/?prompt={TEXT}",
         queryTemplate = "要約してください:\n\n{TEXT}",
         default = true,
         enabled = true,
@@ -90,7 +90,7 @@ require("chatgpt_search_templater").setup({
     separator = "\n\n",
     fallback_text = "TODO:",
     template = {
-      url = "https://chatgpt.com/?q={TEXT}",
+      url = "https://chatgpt.com/?prompt={TEXT}",
       model = "gpt-5-thinking",
       hintsSearch = true,
       temporaryChat = false,

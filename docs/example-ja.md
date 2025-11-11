@@ -48,7 +48,7 @@ JSONファイルは、プラグインで使用されるテンプレートを定�
       "id": "template-1",
       "label": "日本語翻訳",  // 日本語翻訳用テンプレート
 
-      "url": "https://chatgpt.com/?q={TEXT}",
+      "url": "https://chatgpt.com/?prompt={TEXT}",
       "queryTemplate": "以下の文章を日本語訳してください。\nまたこの中で使われている単語や熟語について解説するとともに、文中の語句で簡単な物語を作成してください。\n\n{TEXT}",
       "enabled": true,
       "hintsSearch": true,
@@ -58,7 +58,7 @@ JSONファイルは、プラグインで使用されるテンプレートを定�
     {
       "id": "template-2",
       "label": "学習",  // 学習向け解説テンプレート
-      "url": "https://chatgpt.com/?q={TEXT}",
+      "url": "https://chatgpt.com/?prompt={TEXT}",
       "queryTemplate": "以下の文章について初学者にもわかるように丁寧に解説してください。\nまた、合わせてこの内容に関する抑えておいたほうがいいことなどあれば教えて下さい。\n\n{TEXT}",
 
       "default": true,
@@ -71,7 +71,7 @@ JSONファイルは、プラグインで使用されるテンプレートを定�
     {
       "id": "template-c0536ce9-da63-4281-a0a9-47828c38c35d",
       "label": "英語翻訳",  // 英語翻訳用テンプレート
-      "url": "https://chatgpt.com/?q={TEXT}",
+      "url": "https://chatgpt.com/?prompt={TEXT}",
       "queryTemplate": "以下の文章を英語訳してください。\nまた、この中で使われている単語や文法のワンポイント解説をお願いします。\n\n{TEXT}",
       "enabled": true,
       "hintsSearch": false,
