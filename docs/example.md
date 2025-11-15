@@ -22,11 +22,13 @@ The Lua configuration example demonstrates how to set up the `chatgpt-search-tem
 return {
   "kyaoi/chatgpt-search-templater.nvim",
   config = function()
-    require("chatgpt_search_templater").setup({
+    local chatgpt_search_templater = require("chatgpt_search_templater")
+    local models = chatgpt_search_templater.models
+    chatgpt_search_templater.setup({
       spec_path = vim.fn.stdpath("config") .. "/lua/plugins/utils/search-templater/template.json",
       query_input = {
         template = {
-          model = "gpt-5.1-thinking",
+          model = models[2],
           hintsSearch = true,
           temporaryChat = false,
         },
