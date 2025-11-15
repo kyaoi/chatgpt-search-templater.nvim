@@ -1,3 +1,13 @@
+local M = {}
+
+M.models = {
+	"gpt-5.1",
+	"gpt-5.1-thinking",
+	"gpt-5",
+	"gpt-5-thinking",
+	"custom",
+}
+
 local default_templates = {
 	{
 		id = "template-1",
@@ -7,7 +17,7 @@ local default_templates = {
 		enabled = true,
 		hintsSearch = false,
 		temporaryChat = false,
-		model = "gpt-5",
+		model = M.models[1],
 	},
 	{
 		id = "template-2",
@@ -17,7 +27,7 @@ local default_templates = {
 		enabled = false,
 		hintsSearch = true,
 		temporaryChat = true,
-		model = "gpt-5-thinking",
+		model = M.models[2],
 	},
 }
 
@@ -28,14 +38,14 @@ local custom_query_template = {
 	enabled = true,
 	hintsSearch = true,
 	temporaryChat = false,
-	model = "gpt-5-thinking",
+	model = M.models[1],
 }
 
-return {
+M.spec = {
 	placeholders = { "{選択した文字列}", "{TEXT}" },
 	defaultTemplateUrl = "https://chatgpt.com/?prompt={TEXT}",
 	defaultQueryTemplate = "{TEXT}",
-	templateModelOptions = { "gpt-4o", "o3", "gpt-5", "gpt-5-thinking", "custom" },
+	templateModelOptions = M.models,
 	defaultHardLimit = 3000,
 	hardLimit = 3000,
 	defaultParentMenuTitle = "ChatGPTで検索",
@@ -45,3 +55,5 @@ return {
 	custom_query_template = custom_query_template,
 	customQueryTemplate = vim.deepcopy(custom_query_template),
 }
+
+return M

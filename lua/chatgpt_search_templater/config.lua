@@ -1,3 +1,6 @@
+local spec_data = require("chatgpt_search_templater.spec_data")
+local models = spec_data.models
+
 local M = {}
 
 local defaults = {
@@ -22,7 +25,7 @@ local defaults = {
 		template = {
 			label = "カスタムクエリ入力",
 			url = "https://chatgpt.com/?prompt={TEXT}",
-			model = "gpt-5",
+			model = models[1],
 			hintsSearch = false,
 			temporaryChat = false,
 		},

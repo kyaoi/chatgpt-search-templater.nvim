@@ -1,9 +1,12 @@
 local config = require("chatgpt_search_templater.config")
 local keymaps = require("chatgpt_search_templater.keymaps")
 local spec = require("chatgpt_search_templater.spec")
+local spec_data = require("chatgpt_search_templater.spec_data")
 local templates = require("chatgpt_search_templater.templates")
 
 local M = {}
+
+M.models = spec_data.models
 
 ---@param opts table|nil
 ---@return table

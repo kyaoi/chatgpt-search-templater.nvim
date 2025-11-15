@@ -22,7 +22,7 @@ return {
       spec_path = vim.fn.stdpath("config") .. "/lua/plugins/utils/search-templater/template.json",
       query_input = {
         template = {
-          model = "gpt-5-thinking",
+          model = "gpt-5.1-thinking",
           hintsSearch = true,
           temporaryChat = false,
         },
@@ -53,7 +53,7 @@ JSONファイルは、プラグインで使用されるテンプレートを定�
       "enabled": true,
       "hintsSearch": true,
       "temporaryChat": false,
-      "model": "gpt-5-thinking"
+      "model": "gpt-5.1-thinking"
     },
     {
       "id": "template-2",
@@ -66,7 +66,7 @@ JSONファイルは、プラグインで使用されるテンプレートを定�
 
       "hintsSearch": true,
       "temporaryChat": false,
-      "model": "gpt-5-thinking"
+      "model": "gpt-5.1-thinking"
     },
     {
       "id": "template-c0536ce9-da63-4281-a0a9-47828c38c35d",
@@ -76,7 +76,7 @@ JSONファイルは、プラグインで使用されるテンプレートを定�
       "enabled": true,
       "hintsSearch": false,
       "temporaryChat": true,
-      "model": "gpt-5"
+      "model": "gpt-5.1"
     }
   ]
 }
