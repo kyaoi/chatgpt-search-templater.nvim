@@ -123,7 +123,7 @@ require("chatgpt_search_templater").setup({
     fallback_text = "TODO:",       -- 選択が空のときに {TEXT} として使う値
     template = {
       url = "https://chatgpt.com/?prompt={TEXT}",
-      model = "gpt-5-thinking",
+      model = "gpt-5.1-thinking",
       hintsSearch = true,
       temporaryChat = false,
     },

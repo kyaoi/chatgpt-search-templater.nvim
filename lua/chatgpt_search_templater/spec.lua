@@ -1,4 +1,5 @@
 local spec_data = require("chatgpt_search_templater.spec_data")
+local spec = spec_data.spec
 
 local M = {}
 
@@ -103,7 +104,7 @@ local function resolve_spec()
 		return normalize_spec(data)
 	end
 
-	return normalize_spec(spec_data)
+	return normalize_spec(spec)
 end
 
 ---@param path string|nil
@@ -141,26 +142,26 @@ end
 
 ---@return table
 function M.default_templates()
-	local spec = M.load()
-	return clone(spec.defaultTemplates or {})
+	local load_spec = M.load()
+	return clone(load_spec.defaultTemplates or {})
 end
 
 ---@return table
 function M.custom_template()
-	local spec = M.load()
-	return clone(spec.customQueryTemplate or spec.custom_query_template or {})
+	local load_spec = M.load()
+	return clone(load_spec.customQueryTemplate or load_spec.custom_query_template or {})
 end
 
 ---@return table
 function M.placeholders()
-	local spec = M.load()
-	return clone(spec.placeholders or {})
+	local load_spec = M.load()
+	return clone(load_spec.placeholders or {})
 end
 
 ---@return table
 function M.model_options()
-	local spec = M.load()
-	return clone(spec.templateModelOptions or {})
+	local load_spec = M.load()
+	return clone(load_spec.templateModelOptions or {})
 end
 
 return M

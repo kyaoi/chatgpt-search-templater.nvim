@@ -78,7 +78,9 @@ require("chatgpt_search_templater").setup({
 `query_input` オプションを設定すると、ビジュアル選択と併用できるフローティング入力ウィンドウを調整できます。入力内容と `{TEXT}` を組み合わせ、起動ごとに一時テンプレートを生成します。
 
 ```lua
-require("chatgpt_search_templater").setup({
+local chatgpt_search_templater = require("chatgpt_search_templater")
+local models = chatgpt_search_templater.models
+chatgpt_search_templater.setup({
   query_input = {
     title = "ChatGPT Query",
     border = "rounded",
@@ -91,7 +93,7 @@ require("chatgpt_search_templater").setup({
     fallback_text = "TODO:",
     template = {
       url = "https://chatgpt.com/?prompt={TEXT}",
-      model = "gpt-5-thinking",
+      model = models[2],
       hintsSearch = true,
       temporaryChat = false,
     },

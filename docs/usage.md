@@ -94,20 +94,22 @@ mapping. It combines the current visual selection with additional text and
 produces a one-off template on the fly.
 
 ```lua
-require("chatgpt_search_templater").setup({
+local chatgpt_search_templater = require("chatgpt_search_templater")
+local models = chatgpt_search_templater.models
+chatgpt_search_templater.setup({
   query_input = {
     title = "ChatGPT Query",
     border = "rounded",
     width = 80,
     height = 16,
-    prompt = "Describe what you need",
+    prompt = "必要内容を記述してください",
     preset = "Please help with:\n",
     append_selection = true,
     separator = "\n\n",
     fallback_text = "TODO:",
     template = {
       url = "https://chatgpt.com/?prompt={TEXT}",
-      model = "gpt-5-thinking",
+      model = models[2],
       hintsSearch = true,
       temporaryChat = false,
     },
